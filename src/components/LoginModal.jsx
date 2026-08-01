@@ -33,7 +33,7 @@ export const LoginModal = () => {
             VIRAL<span className="text-cyan-400">FX</span>
           </h2>
           <p className="mt-1 text-xs font-semibold text-slate-400">
-            Painel Restrito de Controle Financeiro Sócio 50/50
+            Painel de controle financeiro
           </p>
         </div>
 
@@ -103,7 +103,7 @@ export const LoginModal = () => {
         <div className="bg-slate-950/80 px-8 py-4 text-center border-t border-slate-800/80">
           <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5 font-medium">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-            Ambiente de acesso restrito Fábio & Luiz
+            Ambiente de acesso restrito
           </p>
         </div>
 

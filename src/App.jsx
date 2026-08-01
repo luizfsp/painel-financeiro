@@ -7,7 +7,6 @@ import { DashboardView } from './components/DashboardView';
 import { ReceitasView } from './components/ReceitasView';
 import { GastosView } from './components/GastosView';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { Heart } from 'lucide-react';
 
 const MainContent = () => {
   const { currentUser } = useFinancial();
@@ -43,14 +42,9 @@ const MainContent = () => {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950/80 py-6 text-center text-xs text-slate-500 mt-8">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-400">ViralFX Financeiro</span>
-            <span>• Controle 50/50 Fábio & Luiz</span>
-          </div>
-          <p className="flex items-center gap-1">
-            Desenvolvido com <Heart className="h-3.5 w-3.5 text-rose-500 fill-rose-500" /> para a equipe ViralFX
-          </p>
+        <div className="mx-auto max-w-7xl px-4 flex items-center justify-center gap-2">
+          <span className="font-bold text-slate-400">ViralFX Financeiro</span>
+          <span>• Controle de gastos e receitas</span>
         </div>
       </footer>
 
