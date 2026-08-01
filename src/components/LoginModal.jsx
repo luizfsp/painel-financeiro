@@ -1,24 +1,34 @@
 import React, { useState } from 'react';
 import { useFinancial } from '../context/FinancialContext';
-import { ShieldCheck, UserCheck, KeyRound } from 'lucide-react';
+import { ShieldCheck, UserCheck, KeyRound, RefreshCw } from 'lucide-react';
 
 export const LoginModal = () => {
   const { partners, login, verifyPartnerPassword } = useFinancial();
   const [selectedPartner, setSelectedPartner] = useState('Fabio');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const isValid = verifyPartnerPassword(selectedPartner, pin);
-    if (!isValid) {
-      setError(`Senha incorreta para o perfil de ${selectedPartner}!`);
-      return;
+    try {
+      const isValid = await verifyPartnerPassword(selectedPartner, pin);
+      if (!isValid) {
+        setError(`Senha incorreta para o perfil de ${selectedPartner}!`);
+        setLoading(false);
+        return;
+      }
+
+      login(selectedPartner);
+    } catch (err) {
+      console.error(err);
+      setError('Erro ao validar senha no banco de dados.');
+    } finally {
+      setLoading(false);
     }
-
-    login(selectedPartner);
   };
 
   return (
@@ -95,9 +105,17 @@ export const LoginModal = () => {
 
           <button
             type="submit"
-            className="w-full rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 py-3.5 text-sm font-bold text-white shadow-xl shadow-purple-600/30 hover:opacity-95 transition-all"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 py-3.5 text-sm font-bold text-white shadow-xl shadow-purple-600/30 hover:opacity-95 transition-all disabled:opacity-50"
           >
-            Entrar como {selectedPartner}
+            {loading ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                <span>Verificando na Nuvem...</span>
+              </>
+            ) : (
+              <span>Entrar como {selectedPartner}</span>
+            )}
           </button>
         </form>
 

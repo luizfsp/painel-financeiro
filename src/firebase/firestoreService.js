@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 let app = null;
 let db = null;
@@ -66,6 +66,21 @@ export const initializeFirebaseService = (configObj) => {
   }
 };
 
+// Fetch current snapshot directly from Firestore
+export const fetchCurrentFirestoreData = async (database) => {
+  if (!database) return null;
+  try {
+    const docRef = doc(database, 'viralfx_financials', 'current_state');
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      return snapshot.data();
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar snapshot direto do Firestore:', err);
+  }
+  return null;
+};
+
 // Realtime Listener for ViralFX Financial Data
 export const subscribeToViralFXData = (database, onDataReceived) => {
   if (!database) return () => {};
@@ -90,13 +105,18 @@ export const pushDataToFirestore = async (database, payload, updatedBy = 'Sócio
 
   try {
     const docRef = doc(database, 'viralfx_financials', 'current_state');
-    await setDoc(docRef, {
-      months: payload.months,
-      revenues: payload.revenues,
-      expenses: payload.expenses,
+    const dataToSave = {
       updatedBy,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    };
+
+    if (payload.months !== undefined) dataToSave.months = payload.months;
+    if (payload.revenues !== undefined) dataToSave.revenues = payload.revenues;
+    if (payload.expenses !== undefined) dataToSave.expenses = payload.expenses;
+    if (payload.partnerPasswords !== undefined) dataToSave.partnerPasswords = payload.partnerPasswords;
+    if (payload.masterPassword !== undefined) dataToSave.masterPassword = payload.masterPassword;
+
+    await setDoc(docRef, dataToSave, { merge: true });
     return true;
   } catch (err) {
     console.error('Erro ao enviar dados para o Firestore:', err);

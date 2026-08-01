@@ -12,7 +12,8 @@ import {
   clearFirebaseConfig, 
   initializeFirebaseService, 
   subscribeToViralFXData, 
-  pushDataToFirestore 
+  pushDataToFirestore,
+  fetchCurrentFirestoreData
 } from '../firebase/firestoreService';
 
 const FinancialContext = createContext();
@@ -271,9 +272,21 @@ export const FinancialProvider = ({ children }) => {
     return { success: true };
   };
 
-  // Check login password for a partner
-  const verifyPartnerPassword = (partnerName, inputPass) => {
-    const activeMap = partnerPasswordsRef.current || getStoredPartnerPasswords();
+  // Check login password for a partner in real-time directly against cloud database
+  const verifyPartnerPassword = async (partnerName, inputPass) => {
+    let activeMap = partnerPasswordsRef.current || getStoredPartnerPasswords();
+
+    // Query latest cloud password to prevent cross-browser cache mismatch
+    if (dbRef.current) {
+      const remoteData = await fetchCurrentFirestoreData(dbRef.current);
+      if (remoteData && remoteData.partnerPasswords && typeof remoteData.partnerPasswords === 'object') {
+        activeMap = { ...DEFAULT_PARTNER_PASSWORDS, ...remoteData.partnerPasswords };
+        setPartnerPasswords(activeMap);
+        partnerPasswordsRef.current = activeMap;
+        localStorage.setItem('viralfx_partner_passwords', JSON.stringify(activeMap));
+      }
+    }
+
     const expectedPass = activeMap[partnerName] || 'Viral420*';
     return inputPass.trim() === expectedPass;
   };
@@ -312,7 +325,7 @@ export const FinancialProvider = ({ children }) => {
     return '2026-07';
   };
 
-  // Helper: Propagate fixed expenses from previous month (ONLY triggered on user request)
+  // Helper: Propagate fixed expenses from previous month
   const propagateFixedExpenses = (targetMonthKey, sourceMonthKey = null) => {
     const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey, expenses);
     const sourceExpenses = expenses[srcKey] || [];
@@ -347,7 +360,7 @@ export const FinancialProvider = ({ children }) => {
     return newFixedItems.length;
   };
 
-  // Helper: Propagate revenue channels from previous month (ONLY triggered on user request)
+  // Helper: Propagate revenue channels from previous month
   const propagateRevenueChannels = (targetMonthKey, sourceMonthKey = null) => {
     const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey, revenues);
     const sourceRevenues = revenues[srcKey] || [];
