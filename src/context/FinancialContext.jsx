@@ -32,6 +32,24 @@ export const MONTH_NAMES = [
   { num: '12', short: 'Dez', full: 'Dezembro' },
 ];
 
+const DEFAULT_PARTNER_PASSWORDS = {
+  Fabio: 'Viral420*',
+  Luiz: 'Viral420*'
+};
+
+const getStoredPartnerPasswords = () => {
+  try {
+    const saved = localStorage.getItem('viralfx_partner_passwords');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...DEFAULT_PARTNER_PASSWORDS, ...parsed };
+    }
+  } catch (e) {
+    console.error('Erro ao ler senhas dos sócios', e);
+  }
+  return DEFAULT_PARTNER_PASSWORDS;
+};
+
 const isMonthKey = (k) => /^\d{4}-\d{2}$/.test(k);
 
 const sanitizeDataMap = (mapObj, defaultData) => {
@@ -61,21 +79,19 @@ const parseSavedMonthKey = (savedKey) => {
 };
 
 export const FinancialProvider = ({ children }) => {
-  // Authentication & Password State
+  // Authentication State
   const [currentUser, setCurrentUser] = useState(() => {
     return localStorage.getItem('viralfx_user') || null;
   });
 
-  const [masterPassword, setMasterPassword] = useState(() => {
-    return localStorage.getItem('viralfx_master_password') || 'Viral420*';
-  });
+  // Individual Passwords State per Partner
+  const [partnerPasswords, setPartnerPasswords] = useState(getStoredPartnerPasswords);
 
-  // Always maintain up-to-date ref to prevent closure staleness during background sync
-  const masterPasswordRef = useRef(masterPassword);
+  const partnerPasswordsRef = useRef(partnerPasswords);
   useEffect(() => {
-    masterPasswordRef.current = masterPassword;
-    localStorage.setItem('viralfx_master_password', masterPassword);
-  }, [masterPassword]);
+    partnerPasswordsRef.current = partnerPasswords;
+    localStorage.setItem('viralfx_partner_passwords', JSON.stringify(partnerPasswords));
+  }, [partnerPasswords]);
 
   // Selected Year & Month Number
   const [currentYear, setCurrentYear] = useState(() => {
@@ -96,7 +112,7 @@ export const FinancialProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : INITIAL_MONTHS;
   });
 
-  // Revenues Data Map by month key (e.g., '2026-09')
+  // Revenues Data Map
   const [revenues, setRevenues] = useState(() => {
     const saved = localStorage.getItem('viralfx_revenues');
     if (!saved) return INITIAL_REVENUES;
@@ -107,7 +123,7 @@ export const FinancialProvider = ({ children }) => {
     }
   });
 
-  // Expenses Data Map by month key (e.g., '2026-09')
+  // Expenses Data Map
   const [expenses, setExpenses] = useState(() => {
     const saved = localStorage.getItem('viralfx_expenses');
     if (!saved) return INITIAL_EXPENSES;
@@ -129,15 +145,15 @@ export const FinancialProvider = ({ children }) => {
   const [lastCloudSync, setLastCloudSync] = useState(null);
   const dbRef = useRef(null);
 
-  // Sync state to Firestore with ref-guaranteed current password
-  const syncToCloud = async (newMonths, newRevenues, newExpenses, explicitPass = null) => {
+  // Sync state to Firestore with ref-guaranteed partner passwords
+  const syncToCloud = async (newMonths, newRevenues, newExpenses, explicitPassMap = null) => {
     if (dbRef.current) {
-      const activePass = explicitPass || masterPasswordRef.current || localStorage.getItem('viralfx_master_password') || 'Viral420*';
+      const activePassMap = explicitPassMap || partnerPasswordsRef.current || getStoredPartnerPasswords();
       const success = await pushDataToFirestore(dbRef.current, {
         months: newMonths,
         revenues: newRevenues,
         expenses: newExpenses,
-        masterPassword: activePass
+        partnerPasswords: activePassMap
       }, currentUser || 'Sócio');
 
       if (success) {
@@ -160,22 +176,23 @@ export const FinancialProvider = ({ children }) => {
             if (remoteData.revenues) setRevenues(sanitizeDataMap(remoteData.revenues, INITIAL_REVENUES));
             if (remoteData.expenses) setExpenses(sanitizeDataMap(remoteData.expenses, INITIAL_EXPENSES));
             
-            // Respect remote password if present, otherwise push local custom password
-            if (remoteData.masterPassword && remoteData.masterPassword.trim() !== '') {
-              setMasterPassword(remoteData.masterPassword);
-              localStorage.setItem('viralfx_master_password', remoteData.masterPassword);
+            // Synchronize individual partner passwords from cloud
+            if (remoteData.partnerPasswords && typeof remoteData.partnerPasswords === 'object') {
+              const mergedPass = { ...DEFAULT_PARTNER_PASSWORDS, ...remoteData.partnerPasswords };
+              setPartnerPasswords(mergedPass);
+              partnerPasswordsRef.current = mergedPass;
+              localStorage.setItem('viralfx_partner_passwords', JSON.stringify(mergedPass));
             } else {
-              // Ensure custom local password gets synced up to cloud if remote was empty
-              const localSaved = localStorage.getItem('viralfx_master_password');
-              if (localSaved && localSaved !== 'Viral420*') {
-                pushDataToFirestore(res.db, {
-                  months: remoteData.months || months,
-                  revenues: remoteData.revenues || revenues,
-                  expenses: remoteData.expenses || expenses,
-                  masterPassword: localSaved
-                }, 'Sistema');
-              }
+              // Push local passwords up if remote had none
+              const localSaved = getStoredPartnerPasswords();
+              pushDataToFirestore(res.db, {
+                months: remoteData.months || months,
+                revenues: remoteData.revenues || revenues,
+                expenses: remoteData.expenses || expenses,
+                partnerPasswords: localSaved
+              }, 'Sistema');
             }
+
             setLastCloudSync(new Date().toLocaleTimeString('pt-BR'));
           }
         });
@@ -212,24 +229,38 @@ export const FinancialProvider = ({ children }) => {
     localStorage.setItem('viralfx_expenses', JSON.stringify(expenses));
   }, [expenses]);
 
-  // Change Password Action
-  const changePassword = (currentPass, newPass) => {
-    const activeCurrent = masterPasswordRef.current || localStorage.getItem('viralfx_master_password') || 'Viral420*';
+  // Change Password Action for a specific partner
+  const changePassword = (partnerName, currentPass, newPass) => {
+    const targetPartner = partnerName || currentUser || 'Fabio';
+    const activeMap = partnerPasswordsRef.current || getStoredPartnerPasswords();
+    const currentActivePass = activeMap[targetPartner] || 'Viral420*';
 
-    if (currentPass !== activeCurrent) {
-      return { success: false, error: 'A senha atual está incorreta.' };
+    if (currentPass !== currentActivePass) {
+      return { success: false, error: `A senha atual do perfil ${targetPartner} está incorreta.` };
     }
     if (!newPass || newPass.trim().length < 4) {
       return { success: false, error: 'A nova senha deve ter pelo menos 4 caracteres.' };
     }
 
     const cleanPass = newPass.trim();
-    setMasterPassword(cleanPass);
-    masterPasswordRef.current = cleanPass;
-    localStorage.setItem('viralfx_master_password', cleanPass);
-    
-    syncToCloud(months, revenues, expenses, cleanPass);
+    const updatedMap = {
+      ...activeMap,
+      [targetPartner]: cleanPass
+    };
+
+    setPartnerPasswords(updatedMap);
+    partnerPasswordsRef.current = updatedMap;
+    localStorage.setItem('viralfx_partner_passwords', JSON.stringify(updatedMap));
+
+    syncToCloud(months, revenues, expenses, updatedMap);
     return { success: true };
+  };
+
+  // Check login password for a partner
+  const verifyPartnerPassword = (partnerName, inputPass) => {
+    const activeMap = partnerPasswordsRef.current || getStoredPartnerPasswords();
+    const expectedPass = activeMap[partnerName] || 'Viral420*';
+    return inputPass.trim() === expectedPass;
   };
 
   // Fetch live USD/BRL rate
@@ -526,7 +557,8 @@ export const FinancialProvider = ({ children }) => {
       currentUser,
       login,
       logout,
-      masterPassword,
+      partnerPasswords,
+      verifyPartnerPassword,
       changePassword,
       partners: INITIAL_PARTNERS,
       currentYear,

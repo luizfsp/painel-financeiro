@@ -23,11 +23,11 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    const res = changePassword(currentPass, newPass);
+    const res = changePassword(currentUser, currentPass, newPass);
     if (!res.success) {
       setErrorMsg(res.error);
     } else {
-      setSuccessMsg('Senha alterada com sucesso! A nova senha já está valendo.');
+      setSuccessMsg(`Senha do perfil de ${currentUser} alterada com sucesso!`);
       setCurrentPass('');
       setNewPass('');
       setConfirmPass('');
@@ -46,7 +46,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-purple-400" />
-            <h3 className="text-lg font-bold text-white">Alterar Senha do Perfil</h3>
+            <h3 className="text-lg font-bold text-white">Alterar Senha do Perfil ({currentUser})</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white">
             <X className="h-5 w-5" />
@@ -54,7 +54,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
         </div>
 
         <p className="text-xs text-slate-400">
-          Você está logado como <strong className="text-purple-300">{currentUser}</strong>. Ao alterar a senha, ela será atualizada para ambos os sócios.
+          Você está logado no perfil de <strong className="text-purple-300">{currentUser}</strong>. A nova senha será aplicada de forma individual e exclusiva para este perfil.
         </p>
 
         {successMsg && (
@@ -74,7 +74,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
           
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">
-              Senha Atual
+              Senha Atual do {currentUser}
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -91,7 +91,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">
-              Nova Senha
+              Nova Senha para {currentUser}
             </label>
             <div className="relative">
               <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -135,7 +135,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
               type="submit"
               className="rounded-xl bg-purple-600 px-5 py-2 text-sm font-bold text-white hover:bg-purple-500 shadow-lg shadow-purple-600/30"
             >
-              Salvar Nova Senha
+              Salvar Senha do {currentUser}
             </button>
           </div>
 

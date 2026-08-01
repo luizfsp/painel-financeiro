@@ -3,7 +3,7 @@ import { useFinancial } from '../context/FinancialContext';
 import { ShieldCheck, UserCheck, KeyRound } from 'lucide-react';
 
 export const LoginModal = () => {
-  const { partners, login, masterPassword } = useFinancial();
+  const { partners, login, verifyPartnerPassword } = useFinancial();
   const [selectedPartner, setSelectedPartner] = useState('Fabio');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -12,8 +12,9 @@ export const LoginModal = () => {
     e.preventDefault();
     setError('');
 
-    if (pin.trim() !== masterPassword) {
-      setError('Senha incorreta! Digite a senha de acesso atual da ViralFX.');
+    const isValid = verifyPartnerPassword(selectedPartner, pin);
+    if (!isValid) {
+      setError(`Senha incorreta para o perfil de ${selectedPartner}!`);
       return;
     }
 
@@ -68,13 +69,13 @@ export const LoginModal = () => {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Senha de Acesso
+              Senha de Acesso ({selectedPartner})
             </label>
             <div className="relative">
               <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <input
                 type="password"
-                placeholder="Digite a senha de acesso"
+                placeholder={`Digite a senha do perfil ${selectedPartner}`}
                 value={pin}
                 onChange={(e) => {
                   setPin(e.target.value);
