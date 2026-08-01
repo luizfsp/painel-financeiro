@@ -52,12 +52,36 @@ const getStoredPartnerPasswords = () => {
 
 const isMonthKey = (k) => /^\d{4}-\d{2}$/.test(k);
 
-const sanitizeDataMap = (mapObj, defaultData) => {
+const dedupeExpenses = (items) => {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  return items.filter(item => {
+    if (!item || !item.descricao) return false;
+    const key = `${item.id || ''}-${item.descricao.toLowerCase().trim()}-${item.valorBRL}-${item.pagoPor}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const dedupeRevenues = (items) => {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  return items.filter(item => {
+    if (!item || !item.channel) return false;
+    const key = `${item.id || ''}-${item.channel.toLowerCase().trim()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const sanitizeDataMap = (mapObj, defaultData, isExpense = true) => {
   if (!mapObj || typeof mapObj !== 'object') return defaultData;
   const clean = {};
   Object.keys(mapObj).forEach(k => {
-    if (isMonthKey(k)) {
-      clean[k] = mapObj[k];
+    if (isMonthKey(k) && Array.isArray(mapObj[k])) {
+      clean[k] = isExpense ? dedupeExpenses(mapObj[k]) : dedupeRevenues(mapObj[k]);
     }
   });
   return Object.keys(clean).length > 0 ? clean : defaultData;
@@ -117,7 +141,7 @@ export const FinancialProvider = ({ children }) => {
     const saved = localStorage.getItem('viralfx_revenues');
     if (!saved) return INITIAL_REVENUES;
     try {
-      return sanitizeDataMap(JSON.parse(saved), INITIAL_REVENUES);
+      return sanitizeDataMap(JSON.parse(saved), INITIAL_REVENUES, false);
     } catch (e) {
       return INITIAL_REVENUES;
     }
@@ -128,7 +152,7 @@ export const FinancialProvider = ({ children }) => {
     const saved = localStorage.getItem('viralfx_expenses');
     if (!saved) return INITIAL_EXPENSES;
     try {
-      return sanitizeDataMap(JSON.parse(saved), INITIAL_EXPENSES);
+      return sanitizeDataMap(JSON.parse(saved), INITIAL_EXPENSES, true);
     } catch (e) {
       return INITIAL_EXPENSES;
     }
@@ -173,8 +197,8 @@ export const FinancialProvider = ({ children }) => {
         const unsubscribe = subscribeToViralFXData(res.db, (remoteData) => {
           if (remoteData) {
             if (remoteData.months) setMonths(remoteData.months);
-            if (remoteData.revenues) setRevenues(sanitizeDataMap(remoteData.revenues, INITIAL_REVENUES));
-            if (remoteData.expenses) setExpenses(sanitizeDataMap(remoteData.expenses, INITIAL_EXPENSES));
+            if (remoteData.revenues) setRevenues(sanitizeDataMap(remoteData.revenues, INITIAL_REVENUES, false));
+            if (remoteData.expenses) setExpenses(sanitizeDataMap(remoteData.expenses, INITIAL_EXPENSES, true));
             
             // Synchronize individual partner passwords from cloud
             if (remoteData.partnerPasswords && typeof remoteData.partnerPasswords === 'object') {
@@ -182,15 +206,6 @@ export const FinancialProvider = ({ children }) => {
               setPartnerPasswords(mergedPass);
               partnerPasswordsRef.current = mergedPass;
               localStorage.setItem('viralfx_partner_passwords', JSON.stringify(mergedPass));
-            } else {
-              // Push local passwords up if remote had none
-              const localSaved = getStoredPartnerPasswords();
-              pushDataToFirestore(res.db, {
-                months: remoteData.months || months,
-                revenues: remoteData.revenues || revenues,
-                expenses: remoteData.expenses || expenses,
-                partnerPasswords: localSaved
-              }, 'Sistema');
             }
 
             setLastCloudSync(new Date().toLocaleTimeString('pt-BR'));
@@ -287,7 +302,7 @@ export const FinancialProvider = ({ children }) => {
     fetchExchangeRate();
   }, []);
 
-  // Helper: Find previous month key for expenses
+  // Helper: Find previous month key for expenses/revenues
   const getPreviousAvailableMonthKey = (targetKey, dataMap) => {
     const allKeys = Object.keys(dataMap).filter(k => isMonthKey(k) && (dataMap[k] || []).length > 0).sort();
     const idx = allKeys.indexOf(targetKey);
@@ -297,7 +312,7 @@ export const FinancialProvider = ({ children }) => {
     return '2026-07';
   };
 
-  // Helper: Propagate fixed expenses from previous month
+  // Helper: Propagate fixed expenses from previous month (ONLY triggered on user request)
   const propagateFixedExpenses = (targetMonthKey, sourceMonthKey = null) => {
     const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey, expenses);
     const sourceExpenses = expenses[srcKey] || [];
@@ -309,11 +324,12 @@ export const FinancialProvider = ({ children }) => {
     const targetDescriptions = new Set(existingTargetExpenses.map(e => e.descricao.toLowerCase().trim()));
 
     const newFixedItems = [];
-    fixedOnly.forEach(item => {
-      if (!targetDescriptions.has(item.descricao.toLowerCase().trim())) {
+    fixedOnly.forEach((item, index) => {
+      const descClean = item.descricao.toLowerCase().trim();
+      if (!targetDescriptions.has(descClean)) {
         newFixedItems.push({
           ...item,
-          id: `exp-${targetMonthKey}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          id: `exp-fix-${targetMonthKey}-${index}-${descClean.replace(/\s+/g, '_')}`,
           vencimento: `${targetMonthKey}-01`,
         });
       }
@@ -322,7 +338,7 @@ export const FinancialProvider = ({ children }) => {
     if (newFixedItems.length > 0) {
       const updatedExpenses = {
         ...expenses,
-        [targetMonthKey]: [...(expenses[targetMonthKey] || []), ...newFixedItems]
+        [targetMonthKey]: dedupeExpenses([...(expenses[targetMonthKey] || []), ...newFixedItems])
       };
       setExpenses(updatedExpenses);
       syncToCloud(months, revenues, updatedExpenses);
@@ -331,7 +347,7 @@ export const FinancialProvider = ({ children }) => {
     return newFixedItems.length;
   };
 
-  // Helper: Propagate revenue channels from previous month
+  // Helper: Propagate revenue channels from previous month (ONLY triggered on user request)
   const propagateRevenueChannels = (targetMonthKey, sourceMonthKey = null) => {
     const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey, revenues);
     const sourceRevenues = revenues[srcKey] || [];
@@ -342,10 +358,11 @@ export const FinancialProvider = ({ children }) => {
     const targetChannels = new Set(existingTargetRevenues.map(r => r.channel.toLowerCase().trim()));
 
     const newChannelItems = [];
-    sourceRevenues.forEach(item => {
-      if (!targetChannels.has(item.channel.toLowerCase().trim())) {
+    sourceRevenues.forEach((item, index) => {
+      const chanClean = item.channel.toLowerCase().trim();
+      if (!targetChannels.has(chanClean)) {
         newChannelItems.push({
-          id: `rev-${targetMonthKey}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          id: `rev-chan-${targetMonthKey}-${index}-${chanClean.replace(/\s+/g, '_')}`,
           channel: item.channel,
           faturamentoUSD: 0,
           cambio: liveExchangeRate,
@@ -358,7 +375,7 @@ export const FinancialProvider = ({ children }) => {
     if (newChannelItems.length > 0) {
       const updatedRevenues = {
         ...revenues,
-        [targetMonthKey]: [...(revenues[targetMonthKey] || []), ...newChannelItems]
+        [targetMonthKey]: dedupeRevenues([...(revenues[targetMonthKey] || []), ...newChannelItems])
       };
       setRevenues(updatedRevenues);
       syncToCloud(months, updatedRevenues, expenses);
@@ -382,17 +399,8 @@ export const FinancialProvider = ({ children }) => {
       setMonths(updatedMonths);
     }
 
-    if (!expenses[monthKey] || expenses[monthKey].length === 0) {
-      propagateFixedExpenses(monthKey);
-    }
-
-    if (!revenues[monthKey] || revenues[monthKey].length === 0) {
-      propagateRevenueChannels(monthKey);
-    }
-
     setCurrentYear(safeY);
     setCurrentMonthNum(safeM);
-    syncToCloud(updatedMonths, revenues, expenses);
   };
 
   const changeYear = (newYear) => {
@@ -417,7 +425,7 @@ export const FinancialProvider = ({ children }) => {
     };
     const updated = {
       ...revenues,
-      [monthKey]: [...(revenues[monthKey] || []), newItem]
+      [monthKey]: dedupeRevenues([...(revenues[monthKey] || []), newItem])
     };
     setRevenues(updated);
     syncToCloud(months, updated, expenses);
@@ -467,7 +475,7 @@ export const FinancialProvider = ({ children }) => {
     };
     const updated = {
       ...expenses,
-      [monthKey]: [...(expenses[monthKey] || []), newItem]
+      [monthKey]: dedupeExpenses([...(expenses[monthKey] || []), newItem])
     };
     setExpenses(updated);
     syncToCloud(months, revenues, updated);
@@ -541,8 +549,8 @@ export const FinancialProvider = ({ children }) => {
       const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
       if (parsed.months && parsed.revenues && parsed.expenses) {
         setMonths(parsed.months);
-        setRevenues(sanitizeDataMap(parsed.revenues, INITIAL_REVENUES));
-        setExpenses(sanitizeDataMap(parsed.expenses, INITIAL_EXPENSES));
+        setRevenues(sanitizeDataMap(parsed.revenues, INITIAL_REVENUES, false));
+        setExpenses(sanitizeDataMap(parsed.expenses, INITIAL_EXPENSES, true));
         syncToCloud(parsed.months, parsed.revenues, parsed.expenses);
         return true;
       }
