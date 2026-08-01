@@ -431,7 +431,7 @@ export const FinancialProvider = ({ children }) => {
       vencimento: expenseItem.vencimento || `${monthKey}-01`,
       descricao: expenseItem.descricao || 'Nova Despesa',
       categoria: expenseItem.categoria || 'Variável',
-      pagoPor: expenseItem.pagoPor || currentUser || 'Fábio',
+      pagoPor: expenseItem.pagoPor || currentUser || 'Fabio',
       valorBRL: parseFloat(expenseItem.valorBRL || 0),
     };
     const updated = {

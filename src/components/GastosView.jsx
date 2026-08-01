@@ -38,7 +38,7 @@ export const GastosView = () => {
     vencimento: `${currentMonthKey}-01`,
     descricao: '',
     categoria: 'Fixo',
-    pagoPor: currentUser || 'Fábio',
+    pagoPor: currentUser || 'Fabio',
     valorBRL: '',
   });
 
@@ -50,7 +50,7 @@ export const GastosView = () => {
       vencimento: `${currentMonthKey}-01`,
       descricao: '',
       categoria: 'Fixo',
-      pagoPor: currentUser || 'Fábio',
+      pagoPor: currentUser || 'Fabio',
       valorBRL: '',
     });
     setEditingId(null);
@@ -109,7 +109,7 @@ export const GastosView = () => {
   const totalBRL = expenses.reduce((acc, e) => acc + e.valorBRL, 0);
   const totalFixosBRL = expenses.filter(e => e.categoria === 'Fixo').reduce((acc, e) => acc + e.valorBRL, 0);
   const totalVariaveisBRL = expenses.filter(e => e.categoria === 'Variável').reduce((acc, e) => acc + e.valorBRL, 0);
-  const totalFabioBRL = expenses.filter(e => e.pagoPor === 'Fábio').reduce((acc, e) => acc + e.valorBRL, 0);
+  const totalFabioBRL = expenses.filter(e => e.pagoPor === 'Fabio' || e.pagoPor === 'Fábio').reduce((acc, e) => acc + e.valorBRL, 0);
   const totalLuizBRL = expenses.filter(e => e.pagoPor === 'Luiz').reduce((acc, e) => acc + e.valorBRL, 0);
 
   const formatCurrencyBRL = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -170,7 +170,7 @@ export const GastosView = () => {
         </div>
 
         <div className="glass-card p-5 rounded-3xl border border-slate-800">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Pago por Fábio</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Pago por Fabio</span>
           <p className="mt-2 text-2xl font-black text-purple-400">{formatCurrencyBRL(totalFabioBRL)}</p>
         </div>
 
@@ -210,7 +210,7 @@ export const GastosView = () => {
               className="glass-input rounded-xl px-3 py-1.5 text-xs text-white"
             >
               <option value="Todos" className="bg-slate-900">Todos Sócios</option>
-              <option value="Fábio" className="bg-slate-900">Fábio</option>
+              <option value="Fabio" className="bg-slate-900">Fabio</option>
               <option value="Luiz" className="bg-slate-900">Luiz</option>
             </select>
           </div>
@@ -248,9 +248,9 @@ export const GastosView = () => {
                     </td>
                     <td className="py-4 px-6">
                       <span className={`inline-flex items-center gap-1.5 font-bold ${
-                        item.pagoPor === 'Fábio' ? 'text-purple-400' : 'text-cyan-400'
+                        item.pagoPor === 'Fabio' || item.pagoPor === 'Fábio' ? 'text-purple-400' : 'text-cyan-400'
                       }`}>
-                        <div className={`h-2.5 w-2.5 rounded-full ${item.pagoPor === 'Fábio' ? 'bg-purple-500' : 'bg-cyan-400'}`}></div>
+                        <div className={`h-2.5 w-2.5 rounded-full ${item.pagoPor === 'Fabio' || item.pagoPor === 'Fábio' ? 'bg-purple-500' : 'bg-cyan-400'}`}></div>
                         {item.pagoPor}
                       </span>
                     </td>

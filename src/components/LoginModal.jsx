@@ -4,7 +4,7 @@ import { ShieldCheck, UserCheck, KeyRound } from 'lucide-react';
 
 export const LoginModal = () => {
   const { partners, login, masterPassword } = useFinancial();
-  const [selectedPartner, setSelectedPartner] = useState('Fábio');
+  const [selectedPartner, setSelectedPartner] = useState('Fabio');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 

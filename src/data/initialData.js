@@ -1,4 +1,4 @@
-export const INITIAL_PARTNERS = ['Fábio', 'Luiz'];
+export const INITIAL_PARTNERS = ['Fabio', 'Luiz'];
 
 export const DEFAULT_EXCHANGE_RATE = 5.50;
 
@@ -26,9 +26,9 @@ export const INITIAL_REVENUES = {
 
 export const INITIAL_EXPENSES = {
   '2026-09': [
-    { id: 'exp-9-1', vencimento: '2026-09-01', descricao: 'Contabilidade', categoria: 'Fixo', pagoPor: 'Fábio', valorBRL: 280.00 },
-    { id: 'exp-9-2', vencimento: '2026-09-01', descricao: 'Heygen Creator', categoria: 'Fixo', pagoPor: 'Fábio', valorBRL: 150.00 },
-    { id: 'exp-9-3', vencimento: '2026-09-01', descricao: 'Heygen Mensal 5USD', categoria: 'Fixo', pagoPor: 'Fábio', valorBRL: 25.00 },
+    { id: 'exp-9-1', vencimento: '2026-09-01', descricao: 'Contabilidade', categoria: 'Fixo', pagoPor: 'Fabio', valorBRL: 280.00 },
+    { id: 'exp-9-2', vencimento: '2026-09-01', descricao: 'Heygen Creator', categoria: 'Fixo', pagoPor: 'Fabio', valorBRL: 150.00 },
+    { id: 'exp-9-3', vencimento: '2026-09-01', descricao: 'Heygen Mensal 5USD', categoria: 'Fixo', pagoPor: 'Fabio', valorBRL: 25.00 },
     { id: 'exp-9-4', vencimento: '2026-09-01', descricao: 'Heygen Mensal G2G', categoria: 'Fixo', pagoPor: 'Luiz', valorBRL: 90.00 },
     { id: 'exp-9-5', vencimento: '2026-09-01', descricao: 'ADS Power', categoria: 'Fixo', pagoPor: 'Luiz', valorBRL: 40.00 },
     { id: 'exp-9-6', vencimento: '2026-09-01', descricao: 'SCAM', categoria: 'Variável', pagoPor: 'Luiz', valorBRL: 210.00 },

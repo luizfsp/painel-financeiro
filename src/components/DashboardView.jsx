@@ -62,7 +62,7 @@ export const DashboardView = () => {
 
   // Acerto de Contas 50/50
   const gastosFabio = expenses
-    .filter(e => e.pagoPor === 'Fábio')
+    .filter(e => e.pagoPor === 'Fabio' || e.pagoPor === 'Fábio')
     .reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
 
   const gastosLuiz = expenses
@@ -149,7 +149,7 @@ export const DashboardView = () => {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-2xl bg-purple-500/10 border border-purple-500/20 px-4 py-2 text-xs font-bold text-purple-300">
             <Users className="h-4 w-4 text-purple-400" />
-            Divisão Sócios: 50% Fábio / 50% Luiz
+            Divisão Sócios: 50% Fabio / 50% Luiz
           </div>
         </div>
       </div>
@@ -231,7 +231,7 @@ export const DashboardView = () => {
               <tr className="hover:bg-slate-900/40 transition-colors">
                 <td className="py-4 px-6 font-bold text-white flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-purple-500"></div>
-                  Fábio
+                  Fabio
                 </td>
                 <td className="py-4 px-6 text-purple-300">{formatCurrency(gastosFabio)}</td>
                 <td className="py-4 px-6 text-slate-400">{formatCurrency(parteDevidaGastos)}</td>

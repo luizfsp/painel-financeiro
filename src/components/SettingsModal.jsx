@@ -70,7 +70,7 @@ export const SettingsModal = ({ isOpen, onClose }) => {
 
       if (configObj && configObj.apiKey && configObj.projectId) {
         updateFirebaseCredentials(configObj);
-        alert('Conexão com o Firebase salva com sucesso! Os dados agora sincronizam em tempo real para Fábio e Luiz.');
+        alert('Conexão com o Firebase salva com sucesso! Os dados agora sincronizam em tempo real para Fabio e Luiz.');
       } else {
         setErrorMsg('Credenciais inválidas. Verifique se o texto possui "apiKey" e "projectId".');
       }
@@ -89,7 +89,7 @@ export const SettingsModal = ({ isOpen, onClose }) => {
             <Cloud className="h-6 w-6 text-cyan-400" />
             <div>
               <h3 className="text-lg font-bold text-white">Sincronização em Nuvem (Firebase)</h3>
-              <p className="text-xs text-slate-400">Conecte o banco de dados para Fábio e Luiz usarem juntos</p>
+              <p className="text-xs text-slate-400">Conecte o banco de dados para Fabio e Luiz usarem juntos</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white">
