@@ -61,9 +61,13 @@ const parseSavedMonthKey = (savedKey) => {
 };
 
 export const FinancialProvider = ({ children }) => {
-  // Authentication State
+  // Authentication & Password State
   const [currentUser, setCurrentUser] = useState(() => {
     return localStorage.getItem('viralfx_user') || null;
+  });
+
+  const [masterPassword, setMasterPassword] = useState(() => {
+    return localStorage.getItem('viralfx_master_password') || 'Viral420*';
   });
 
   // Selected Year & Month Number
@@ -84,15 +88,6 @@ export const FinancialProvider = ({ children }) => {
     const saved = localStorage.getItem('viralfx_months');
     return saved ? JSON.parse(saved) : INITIAL_MONTHS;
   });
-
-  // Check version migration to clear fake demo data
-  useEffect(() => {
-    if (!localStorage.getItem('viralfx_clean_v3')) {
-      localStorage.removeItem('viralfx_revenues');
-      localStorage.setItem('viralfx_clean_v3', 'true');
-      setRevenues(INITIAL_REVENUES);
-    }
-  }, []);
 
   // Revenues Data Map by month key (e.g., '2026-09')
   const [revenues, setRevenues] = useState(() => {
@@ -140,6 +135,10 @@ export const FinancialProvider = ({ children }) => {
             if (remoteData.months) setMonths(remoteData.months);
             if (remoteData.revenues) setRevenues(sanitizeDataMap(remoteData.revenues, INITIAL_REVENUES));
             if (remoteData.expenses) setExpenses(sanitizeDataMap(remoteData.expenses, INITIAL_EXPENSES));
+            if (remoteData.masterPassword) {
+              setMasterPassword(remoteData.masterPassword);
+              localStorage.setItem('viralfx_master_password', remoteData.masterPassword);
+            }
             setLastCloudSync(new Date().toLocaleTimeString('pt-BR'));
           }
         });
@@ -155,12 +154,13 @@ export const FinancialProvider = ({ children }) => {
   }, [firebaseConfig]);
 
   // Sync state to Firestore
-  const syncToCloud = async (newMonths, newRevenues, newExpenses) => {
+  const syncToCloud = async (newMonths, newRevenues, newExpenses, newPass = masterPassword) => {
     if (dbRef.current) {
       const success = await pushDataToFirestore(dbRef.current, {
         months: newMonths,
         revenues: newRevenues,
-        expenses: newExpenses
+        expenses: newExpenses,
+        masterPassword: newPass
       }, currentUser || 'Sócio');
 
       if (success) {
@@ -174,6 +174,10 @@ export const FinancialProvider = ({ children }) => {
     if (currentUser) localStorage.setItem('viralfx_user', currentUser);
     else localStorage.removeItem('viralfx_user');
   }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('viralfx_master_password', masterPassword);
+  }, [masterPassword]);
 
   useEffect(() => {
     localStorage.setItem('viralfx_current_month', currentMonthKey);
@@ -190,6 +194,22 @@ export const FinancialProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('viralfx_expenses', JSON.stringify(expenses));
   }, [expenses]);
+
+  // Change Password Action
+  const changePassword = (currentPass, newPass) => {
+    if (currentPass !== masterPassword) {
+      return { success: false, error: 'A senha atual está incorreta.' };
+    }
+    if (!newPass || newPass.trim().length < 4) {
+      return { success: false, error: 'A nova senha deve ter pelo menos 4 caracteres.' };
+    }
+
+    const cleanPass = newPass.trim();
+    setMasterPassword(cleanPass);
+    localStorage.setItem('viralfx_master_password', cleanPass);
+    syncToCloud(months, revenues, expenses, cleanPass);
+    return { success: true };
+  };
 
   // Fetch live USD/BRL rate
   const fetchExchangeRate = async () => {
@@ -426,6 +446,8 @@ export const FinancialProvider = ({ children }) => {
       currentUser,
       login,
       logout,
+      masterPassword,
+      changePassword,
       partners: INITIAL_PARTNERS,
       currentYear,
       currentMonthNum,

@@ -7,10 +7,11 @@ import {
   LogOut, 
   LayoutDashboard,
   DollarSign,
-  Receipt
+  Receipt,
+  KeyRound
 } from 'lucide-react';
 
-export const Navbar = ({ activeTab, setActiveTab }) => {
+export const Navbar = ({ activeTab, setActiveTab, openChangePasswordModal }) => {
   const {
     currentUser,
     logout,
@@ -92,7 +93,7 @@ export const Navbar = ({ activeTab, setActiveTab }) => {
                 : 'border-slate-800 bg-slate-900/60 text-slate-400'
             }`}>
               <div className={`h-2 w-2 rounded-full ${isFirebaseConnected ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></div>
-              <span>{isFirebaseConnected ? 'Firebase Conectado' : 'Conectando ao Banco...'}</span>
+              <span>{isFirebaseConnected ? 'Firebase Conectado' : 'Modo Local'}</span>
             </div>
 
             {/* Exchange Rate Badge */}
@@ -114,13 +115,22 @@ export const Navbar = ({ activeTab, setActiveTab }) => {
               <span>{activeMonthLabel}</span>
             </div>
 
-            {/* User Profile / Logout */}
+            {/* User Profile & Password Change */}
             {currentUser && (
               <div className="flex items-center gap-2 border-l border-slate-800 pl-2">
                 <div className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300">
                   <User className="h-3.5 w-3.5" />
                   <span>{currentUser}</span>
                 </div>
+
+                <button
+                  onClick={openChangePasswordModal}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-purple-300 hover:bg-purple-500/10 transition-all border border-transparent hover:border-purple-500/20"
+                  title="Alterar Senha do Perfil"
+                >
+                  <KeyRound className="h-4 w-4 text-purple-400" />
+                </button>
+
                 <button
                   onClick={logout}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"

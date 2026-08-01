@@ -6,11 +6,13 @@ import { LoginModal } from './components/LoginModal';
 import { DashboardView } from './components/DashboardView';
 import { ReceitasView } from './components/ReceitasView';
 import { GastosView } from './components/GastosView';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { Heart } from 'lucide-react';
 
 const MainContent = () => {
   const { currentUser } = useFinancial();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isChangePassOpen, setIsChangePassOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col justify-between">
@@ -23,6 +25,7 @@ const MainContent = () => {
         <Navbar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          openChangePasswordModal={() => setIsChangePassOpen(true)}
         />
 
         {/* Main Body Container */}
@@ -50,6 +53,12 @@ const MainContent = () => {
           </p>
         </div>
       </footer>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePassOpen}
+        onClose={() => setIsChangePassOpen(false)}
+      />
 
     </div>
   );

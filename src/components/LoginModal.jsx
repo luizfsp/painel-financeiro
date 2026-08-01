@@ -3,7 +3,7 @@ import { useFinancial } from '../context/FinancialContext';
 import { ShieldCheck, UserCheck, KeyRound } from 'lucide-react';
 
 export const LoginModal = () => {
-  const { partners, login } = useFinancial();
+  const { partners, login, masterPassword } = useFinancial();
   const [selectedPartner, setSelectedPartner] = useState('Fábio');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -12,8 +12,8 @@ export const LoginModal = () => {
     e.preventDefault();
     setError('');
 
-    if (pin.trim() !== 'Viral420*') {
-      setError('Senha incorreta! Digite a senha de acesso da ViralFX.');
+    if (pin.trim() !== masterPassword) {
+      setError('Senha incorreta! Digite a senha de acesso atual da ViralFX.');
       return;
     }
 
