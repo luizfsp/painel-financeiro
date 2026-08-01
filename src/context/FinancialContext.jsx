@@ -70,6 +70,13 @@ export const FinancialProvider = ({ children }) => {
     return localStorage.getItem('viralfx_master_password') || 'Viral420*';
   });
 
+  // Always maintain up-to-date ref to prevent closure staleness during background sync
+  const masterPasswordRef = useRef(masterPassword);
+  useEffect(() => {
+    masterPasswordRef.current = masterPassword;
+    localStorage.setItem('viralfx_master_password', masterPassword);
+  }, [masterPassword]);
+
   // Selected Year & Month Number
   const [currentYear, setCurrentYear] = useState(() => {
     const saved = localStorage.getItem('viralfx_current_month');
@@ -122,6 +129,23 @@ export const FinancialProvider = ({ children }) => {
   const [lastCloudSync, setLastCloudSync] = useState(null);
   const dbRef = useRef(null);
 
+  // Sync state to Firestore with ref-guaranteed current password
+  const syncToCloud = async (newMonths, newRevenues, newExpenses, explicitPass = null) => {
+    if (dbRef.current) {
+      const activePass = explicitPass || masterPasswordRef.current || localStorage.getItem('viralfx_master_password') || 'Viral420*';
+      const success = await pushDataToFirestore(dbRef.current, {
+        months: newMonths,
+        revenues: newRevenues,
+        expenses: newExpenses,
+        masterPassword: activePass
+      }, currentUser || 'Sócio');
+
+      if (success) {
+        setLastCloudSync(new Date().toLocaleTimeString('pt-BR'));
+      }
+    }
+  };
+
   // Initialize Firebase when config changes
   useEffect(() => {
     if (firebaseConfig) {
@@ -135,9 +159,22 @@ export const FinancialProvider = ({ children }) => {
             if (remoteData.months) setMonths(remoteData.months);
             if (remoteData.revenues) setRevenues(sanitizeDataMap(remoteData.revenues, INITIAL_REVENUES));
             if (remoteData.expenses) setExpenses(sanitizeDataMap(remoteData.expenses, INITIAL_EXPENSES));
-            if (remoteData.masterPassword) {
+            
+            // Respect remote password if present, otherwise push local custom password
+            if (remoteData.masterPassword && remoteData.masterPassword.trim() !== '') {
               setMasterPassword(remoteData.masterPassword);
               localStorage.setItem('viralfx_master_password', remoteData.masterPassword);
+            } else {
+              // Ensure custom local password gets synced up to cloud if remote was empty
+              const localSaved = localStorage.getItem('viralfx_master_password');
+              if (localSaved && localSaved !== 'Viral420*') {
+                pushDataToFirestore(res.db, {
+                  months: remoteData.months || months,
+                  revenues: remoteData.revenues || revenues,
+                  expenses: remoteData.expenses || expenses,
+                  masterPassword: localSaved
+                }, 'Sistema');
+              }
             }
             setLastCloudSync(new Date().toLocaleTimeString('pt-BR'));
           }
@@ -153,31 +190,11 @@ export const FinancialProvider = ({ children }) => {
     }
   }, [firebaseConfig]);
 
-  // Sync state to Firestore
-  const syncToCloud = async (newMonths, newRevenues, newExpenses, newPass = masterPassword) => {
-    if (dbRef.current) {
-      const success = await pushDataToFirestore(dbRef.current, {
-        months: newMonths,
-        revenues: newRevenues,
-        expenses: newExpenses,
-        masterPassword: newPass
-      }, currentUser || 'Sócio');
-
-      if (success) {
-        setLastCloudSync(new Date().toLocaleTimeString('pt-BR'));
-      }
-    }
-  };
-
   // Sync to LocalStorage
   useEffect(() => {
     if (currentUser) localStorage.setItem('viralfx_user', currentUser);
     else localStorage.removeItem('viralfx_user');
   }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('viralfx_master_password', masterPassword);
-  }, [masterPassword]);
 
   useEffect(() => {
     localStorage.setItem('viralfx_current_month', currentMonthKey);
@@ -197,7 +214,9 @@ export const FinancialProvider = ({ children }) => {
 
   // Change Password Action
   const changePassword = (currentPass, newPass) => {
-    if (currentPass !== masterPassword) {
+    const activeCurrent = masterPasswordRef.current || localStorage.getItem('viralfx_master_password') || 'Viral420*';
+
+    if (currentPass !== activeCurrent) {
       return { success: false, error: 'A senha atual está incorreta.' };
     }
     if (!newPass || newPass.trim().length < 4) {
@@ -206,7 +225,9 @@ export const FinancialProvider = ({ children }) => {
 
     const cleanPass = newPass.trim();
     setMasterPassword(cleanPass);
+    masterPasswordRef.current = cleanPass;
     localStorage.setItem('viralfx_master_password', cleanPass);
+    
     syncToCloud(months, revenues, expenses, cleanPass);
     return { success: true };
   };
