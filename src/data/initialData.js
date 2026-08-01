@@ -13,12 +13,12 @@ export const INITIAL_MONTHS = [
 
 export const INITIAL_REVENUES = {
   '2026-07': [
-    { id: 'rev-7-1', channel: 'Gaebe BS', faturamentoUSD: 0, cambio: 5.50, parteViralUSD: 0 },
-    { id: 'rev-7-2', channel: 'Geludo', faturamentoUSD: 0, cambio: 5.50, parteViralUSD: 0 },
-    { id: 'rev-7-3', channel: 'Inemafoo', faturamentoUSD: 0, cambio: 5.50, parteViralUSD: 0 },
-    { id: 'rev-7-4', channel: 'Chapéus de Palha', faturamentoUSD: 0, cambio: 5.50, parteViralUSD: 0 },
-    { id: 'rev-7-5', channel: 'Jovem Otaku', faturamentoUSD: 0, cambio: 5.50, parteViralUSD: 0 },
-    { id: 'rev-7-6', channel: 'Hashira no Sekai', faturamentoUSD: 0, cambio: 5.50, parteViralUSD: 0 },
+    { id: 'rev-7-1', channel: 'Gaebe BS', faturamentoUSD: 0, cambio: 5.50, porcentagemViral: 100 },
+    { id: 'rev-7-2', channel: 'Geludo', faturamentoUSD: 0, cambio: 5.50, porcentagemViral: 100 },
+    { id: 'rev-7-3', channel: 'Inemafoo', faturamentoUSD: 0, cambio: 5.50, porcentagemViral: 100 },
+    { id: 'rev-7-4', channel: 'Chapéus de Palha', faturamentoUSD: 0, cambio: 5.50, porcentagemViral: 100 },
+    { id: 'rev-7-5', channel: 'Jovem Otaku', faturamentoUSD: 0, cambio: 5.50, porcentagemViral: 100 },
+    { id: 'rev-7-6', channel: 'Hashira no Sekai', faturamentoUSD: 0, cambio: 5.50, porcentagemViral: 100 },
   ],
   '2026-08': [],
   '2026-09': []

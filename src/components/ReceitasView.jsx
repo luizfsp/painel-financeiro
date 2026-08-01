@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { useFinancial } from '../context/FinancialContext';
+import { useFinancial, MONTH_NAMES } from '../context/FinancialContext';
 import { 
   Plus, 
-  DollarSign, 
   Trash2, 
   Edit3, 
   RefreshCw, 
-  Check, 
   X, 
   Globe, 
-  ArrowUpRight 
+  Percent,
+  Repeat,
+  CheckCircle2
 } from 'lucide-react';
 
 export const ReceitasView = () => {
@@ -18,31 +18,34 @@ export const ReceitasView = () => {
     addRevenue, 
     updateRevenue, 
     deleteRevenue, 
+    propagateRevenueChannels,
+    currentYear,
+    currentMonthNum,
     currentMonthKey, 
-    months,
     liveExchangeRate 
   } = useFinancial();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
     channel: '',
     faturamentoUSD: '',
     cambio: liveExchangeRate,
-    parteViralUSD: '',
+    porcentagemViral: 100,
   });
 
-  const activeMonthObj = months.find(m => m.key === currentMonthKey);
-  const monthLabel = activeMonthObj ? activeMonthObj.label : currentMonthKey;
+  const activeMonthObj = MONTH_NAMES.find(m => m.num === currentMonthNum);
+  const monthLabel = activeMonthObj ? `${activeMonthObj.full} / ${currentYear}` : currentMonthKey;
 
   const handleOpenAddModal = () => {
     setFormData({
       channel: '',
       faturamentoUSD: '',
       cambio: liveExchangeRate,
-      parteViralUSD: '',
+      porcentagemViral: 100,
     });
     setEditingId(null);
     setIsModalOpen(true);
@@ -53,7 +56,7 @@ export const ReceitasView = () => {
       channel: item.channel,
       faturamentoUSD: item.faturamentoUSD,
       cambio: item.cambio,
-      parteViralUSD: item.parteViralUSD,
+      porcentagemViral: item.porcentagemViral !== undefined ? item.porcentagemViral : 100,
     });
     setEditingId(item.id);
     setIsModalOpen(true);
@@ -65,7 +68,7 @@ export const ReceitasView = () => {
       channel: formData.channel,
       faturamentoUSD: parseFloat(formData.faturamentoUSD || 0),
       cambio: parseFloat(formData.cambio || liveExchangeRate),
-      parteViralUSD: parseFloat(formData.parteViralUSD !== '' ? formData.parteViralUSD : formData.faturamentoUSD || 0),
+      porcentagemViral: parseFloat(formData.porcentagemViral !== '' ? formData.porcentagemViral : 100),
     };
 
     if (editingId) {
@@ -77,6 +80,16 @@ export const ReceitasView = () => {
     setIsModalOpen(false);
   };
 
+  const handleImportChannels = () => {
+    const count = propagateRevenueChannels(currentMonthKey);
+    if (count > 0) {
+      setSuccessMsg(`${count} canais de receita foram importados do mês anterior com sucesso!`);
+    } else {
+      setSuccessMsg(`Todos os canais do mês anterior já estão cadastrados em ${monthLabel}.`);
+    }
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
   const applyLiveRateToAll = () => {
     revenues.forEach(r => {
       updateRevenue(currentMonthKey, r.id, { cambio: liveExchangeRate });
@@ -84,13 +97,26 @@ export const ReceitasView = () => {
   };
 
   // Calculations
-  const totalUSD = revenues.reduce((acc, r) => acc + (r.faturamentoUSD || 0), 0);
-  const totalBRL = revenues.reduce((acc, r) => acc + (r.faturamentoUSD * r.cambio), 0);
-  const totalViralUSD = revenues.reduce((acc, r) => acc + (r.parteViralUSD || 0), 0);
-  const totalViralBRL = revenues.reduce((acc, r) => acc + (r.parteViralUSD * r.cambio), 0);
+  const totalUSD = revenues.reduce((acc, r) => acc + (parseFloat(r.faturamentoUSD) || 0), 0);
+  const totalBRL = revenues.reduce((acc, r) => acc + ((parseFloat(r.faturamentoUSD) || 0) * (parseFloat(r.cambio) || 0)), 0);
+  const totalViralUSD = revenues.reduce((acc, r) => {
+    const pct = (parseFloat(r.porcentagemViral) !== undefined ? parseFloat(r.porcentagemViral) : 100) / 100;
+    return acc + ((parseFloat(r.faturamentoUSD) || 0) * pct);
+  }, 0);
+  const totalViralBRL = revenues.reduce((acc, r) => {
+    const pct = (parseFloat(r.porcentagemViral) !== undefined ? parseFloat(r.porcentagemViral) : 100) / 100;
+    return acc + ((parseFloat(r.faturamentoUSD) || 0) * pct * (parseFloat(r.cambio) || 0));
+  }, 0);
 
   const formatCurrencyBRL = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   const formatCurrencyUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0);
+
+  // Computed values for preview in Modal
+  const previewFatUSD = parseFloat(formData.faturamentoUSD || 0);
+  const previewCambio = parseFloat(formData.cambio || liveExchangeRate);
+  const previewPct = parseFloat(formData.porcentagemViral !== '' ? formData.porcentagemViral : 100);
+  const previewParteUSD = previewFatUSD * (previewPct / 100);
+  const previewParteBRL = previewParteUSD * previewCambio;
 
   return (
     <div className="space-y-8">
@@ -101,14 +127,23 @@ export const ReceitasView = () => {
           <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">Controle de Ganhos</span>
           <h1 className="text-2xl sm:text-3xl font-black text-white">Receitas por Canal — {monthLabel}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleImportChannels}
+            className="flex items-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-500/10 px-4 py-2.5 text-xs font-bold text-purple-300 hover:bg-purple-500/20 transition-all shadow-md shadow-purple-500/10"
+            title="Importar canais de receita do mês anterior"
+          >
+            <Repeat className="h-4 w-4 text-purple-400" />
+            Importar Canais do Mês Anterior
+          </button>
+
           <button
             onClick={applyLiveRateToAll}
             className="flex items-center gap-2 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all"
             title="Aplicar cotação atual do dólar em todas as linhas"
           >
             <RefreshCw className="h-4 w-4" />
-            Aplicar Dólar Atual (R$ {liveExchangeRate.toFixed(2)})
+            Aplicar Dólar (R$ {liveExchangeRate.toFixed(2)})
           </button>
 
           <button
@@ -120,6 +155,14 @@ export const ReceitasView = () => {
           </button>
         </div>
       </div>
+
+      {/* Success Notification */}
+      {successMsg && (
+        <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-4 text-sm font-semibold text-emerald-300">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+          <span>{successMsg}</span>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -157,6 +200,7 @@ export const ReceitasView = () => {
                 <th className="py-4 px-6">Faturamento USD</th>
                 <th className="py-4 px-6">Câmbio</th>
                 <th className="py-4 px-6">Faturamento BRL</th>
+                <th className="py-4 px-6">Participação %</th>
                 <th className="py-4 px-6">Parte Viral FX (USD)</th>
                 <th className="py-4 px-6">Parte Viral FX (BRL)</th>
                 <th className="py-4 px-6 text-right">Ações</th>
@@ -165,8 +209,13 @@ export const ReceitasView = () => {
             <tbody className="divide-y divide-slate-800/60 font-medium">
               {revenues.length > 0 ? (
                 revenues.map((item) => {
-                  const fatBRL = item.faturamentoUSD * item.cambio;
-                  const viralBRL = item.parteViralUSD * item.cambio;
+                  const fatUSD = parseFloat(item.faturamentoUSD) || 0;
+                  const cambio = parseFloat(item.cambio) || liveExchangeRate;
+                  const pct = item.porcentagemViral !== undefined ? parseFloat(item.porcentagemViral) : 100;
+                  
+                  const fatBRL = fatUSD * cambio;
+                  const parteUSD = fatUSD * (pct / 100);
+                  const parteBRL = parteUSD * cambio;
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
@@ -175,11 +224,17 @@ export const ReceitasView = () => {
                         <Globe className="h-4 w-4 text-cyan-400" />
                         {item.channel}
                       </td>
-                      <td className="py-4 px-6 text-slate-200">{formatCurrencyUSD(item.faturamentoUSD)}</td>
-                      <td className="py-4 px-6 text-cyan-300 font-semibold">R$ {item.cambio?.toFixed(2)}</td>
+                      <td className="py-4 px-6 text-slate-200">{formatCurrencyUSD(fatUSD)}</td>
+                      <td className="py-4 px-6 text-cyan-300 font-semibold">R$ {cambio.toFixed(2)}</td>
                       <td className="py-4 px-6 text-slate-200 font-semibold">{formatCurrencyBRL(fatBRL)}</td>
-                      <td className="py-4 px-6 text-purple-300">{formatCurrencyUSD(item.parteViralUSD)}</td>
-                      <td className="py-4 px-6 text-emerald-400 font-bold">{formatCurrencyBRL(viralBRL)}</td>
+                      <td className="py-4 px-6">
+                        <span className="inline-flex items-center gap-1 font-bold text-purple-300 bg-purple-500/10 border border-purple-500/30 px-2.5 py-0.5 rounded-full text-xs">
+                          <Percent className="h-3 w-3 text-purple-400" />
+                          {pct}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-purple-300">{formatCurrencyUSD(parteUSD)}</td>
+                      <td className="py-4 px-6 text-emerald-400 font-bold">{formatCurrencyBRL(parteBRL)}</td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -203,7 +258,7 @@ export const ReceitasView = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="8" className="py-8 text-center text-slate-500 font-medium">
+                  <td colSpan="9" className="py-8 text-center text-slate-500 font-medium">
                     Nenhum canal de receita cadastrado para {monthLabel}.
                   </td>
                 </tr>
@@ -236,7 +291,7 @@ export const ReceitasView = () => {
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Nome do Canal / Fonte</label>
                 <input
                   type="text"
-                  placeholder="Ex: Gaebe BS, Canal YT, Cliente X"
+                  placeholder="Ex: Gaebe BS, Geludo, Cliente X"
                   value={formData.channel}
                   onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
                   className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
@@ -274,16 +329,35 @@ export const ReceitasView = () => {
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-1">
-                  Parte Viral FX (USD) <span className="text-slate-500 font-normal">(Deixe em branco se for 100%)</span>
+                  Porcentagem Viral FX (%) <span className="text-purple-400 font-bold">(Ex: 100%, 70%, 50%)</span>
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder={formData.faturamentoUSD || "0.00"}
-                  value={formData.parteViralUSD}
-                  onChange={(e) => setFormData({ ...formData, parteViralUSD: e.target.value })}
-                  className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
-                />
+                <div className="relative">
+                  <Percent className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400" />
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    placeholder="100"
+                    value={formData.porcentagemViral}
+                    onChange={(e) => setFormData({ ...formData, porcentagemViral: e.target.value })}
+                    className="glass-input w-full rounded-xl pl-10 pr-4 py-2.5 text-sm font-bold text-purple-300"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Real-time preview box */}
+              <div className="rounded-2xl bg-purple-500/10 border border-purple-500/20 p-4 space-y-1 text-xs">
+                <span className="font-bold uppercase text-purple-300 block">Cálculo Automático Viral FX ({previewPct}%):</span>
+                <div className="flex items-center justify-between text-slate-300">
+                  <span>Parte Viral (USD):</span>
+                  <span className="font-bold text-white">{formatCurrencyUSD(previewParteUSD)}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-300">
+                  <span>Parte Viral (BRL):</span>
+                  <span className="font-bold text-emerald-400">{formatCurrencyBRL(previewParteBRL)}</span>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">

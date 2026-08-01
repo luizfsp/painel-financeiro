@@ -235,19 +235,19 @@ export const FinancialProvider = ({ children }) => {
     fetchExchangeRate();
   }, []);
 
-  // Helper: Find previous month key that has expenses
-  const getPreviousAvailableMonthKey = (targetKey) => {
-    const allKeys = Object.keys(expenses).filter(k => isMonthKey(k) && (expenses[k] || []).length > 0).sort();
+  // Helper: Find previous month key for expenses
+  const getPreviousAvailableMonthKey = (targetKey, dataMap) => {
+    const allKeys = Object.keys(dataMap).filter(k => isMonthKey(k) && (dataMap[k] || []).length > 0).sort();
     const idx = allKeys.indexOf(targetKey);
     if (idx > 0) return allKeys[idx - 1];
-    const earlierKeys = Object.keys(expenses).filter(k => isMonthKey(k) && k < targetKey && (expenses[k] || []).length > 0).sort();
+    const earlierKeys = Object.keys(dataMap).filter(k => isMonthKey(k) && k < targetKey && (dataMap[k] || []).length > 0).sort();
     if (earlierKeys.length > 0) return earlierKeys[earlierKeys.length - 1];
-    return '2026-09';
+    return '2026-07';
   };
 
   // Helper: Propagate fixed expenses from previous month
   const propagateFixedExpenses = (targetMonthKey, sourceMonthKey = null) => {
-    const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey);
+    const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey, expenses);
     const sourceExpenses = expenses[srcKey] || [];
     const fixedOnly = sourceExpenses.filter(e => e.categoria === 'Fixo');
 
@@ -279,6 +279,42 @@ export const FinancialProvider = ({ children }) => {
     return newFixedItems.length;
   };
 
+  // Helper: Propagate revenue channels from previous month
+  const propagateRevenueChannels = (targetMonthKey, sourceMonthKey = null) => {
+    const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey, revenues);
+    const sourceRevenues = revenues[srcKey] || [];
+
+    if (sourceRevenues.length === 0) return 0;
+
+    const existingTargetRevenues = revenues[targetMonthKey] || [];
+    const targetChannels = new Set(existingTargetRevenues.map(r => r.channel.toLowerCase().trim()));
+
+    const newChannelItems = [];
+    sourceRevenues.forEach(item => {
+      if (!targetChannels.has(item.channel.toLowerCase().trim())) {
+        newChannelItems.push({
+          id: `rev-${targetMonthKey}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          channel: item.channel,
+          faturamentoUSD: 0,
+          cambio: liveExchangeRate,
+          porcentagemViral: item.porcentagemViral !== undefined ? item.porcentagemViral : 100,
+          parteViralUSD: 0
+        });
+      }
+    });
+
+    if (newChannelItems.length > 0) {
+      const updatedRevenues = {
+        ...revenues,
+        [targetMonthKey]: [...(revenues[targetMonthKey] || []), ...newChannelItems]
+      };
+      setRevenues(updatedRevenues);
+      syncToCloud(months, updatedRevenues, expenses);
+    }
+
+    return newChannelItems.length;
+  };
+
   // Select Month by Month Number ('01' to '12') and Year ('2026')
   const selectMonth = (monthNum, year = currentYear) => {
     const safeY = (year && !isNaN(parseInt(year))) ? parseInt(year).toString() : '2026';
@@ -298,6 +334,10 @@ export const FinancialProvider = ({ children }) => {
       propagateFixedExpenses(monthKey);
     }
 
+    if (!revenues[monthKey] || revenues[monthKey].length === 0) {
+      propagateRevenueChannels(monthKey);
+    }
+
     setCurrentYear(safeY);
     setCurrentMonthNum(safeM);
     syncToCloud(updatedMonths, revenues, expenses);
@@ -305,18 +345,23 @@ export const FinancialProvider = ({ children }) => {
 
   const changeYear = (newYear) => {
     const parsedY = parseInt(newYear);
-    const safeY = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2035) ? parsedY.toString() : '2026';
+    const safeY = (!isNaN(parsedY) && parsedY >= 2026 && parsedY <= 2035) ? parsedY.toString() : '2026';
     selectMonth(currentMonthNum, safeY);
   };
 
   // Actions for Revenues
   const addRevenue = (monthKey, revenueItem) => {
+    const fatUSD = parseFloat(revenueItem.faturamentoUSD || 0);
+    const pctViral = parseFloat(revenueItem.porcentagemViral !== undefined ? revenueItem.porcentagemViral : 100);
+    const parteUSD = fatUSD * (pctViral / 100);
+
     const newItem = {
       id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       channel: revenueItem.channel || 'Novo Canal',
-      faturamentoUSD: parseFloat(revenueItem.faturamentoUSD || 0),
+      faturamentoUSD: fatUSD,
       cambio: parseFloat(revenueItem.cambio || liveExchangeRate),
-      parteViralUSD: parseFloat(revenueItem.parteViralUSD || revenueItem.faturamentoUSD || 0),
+      porcentagemViral: pctViral,
+      parteViralUSD: parteUSD,
     };
     const updated = {
       ...revenues,
@@ -329,7 +374,21 @@ export const FinancialProvider = ({ children }) => {
   const updateRevenue = (monthKey, id, updatedFields) => {
     const updated = {
       ...revenues,
-      [monthKey]: (revenues[monthKey] || []).map(item => item.id === id ? { ...item, ...updatedFields } : item)
+      [monthKey]: (revenues[monthKey] || []).map(item => {
+        if (item.id !== id) return item;
+
+        const merged = { ...item, ...updatedFields };
+        const fatUSD = parseFloat(merged.faturamentoUSD || 0);
+        const pctViral = parseFloat(merged.porcentagemViral !== undefined ? merged.porcentagemViral : 100);
+        const parteUSD = fatUSD * (pctViral / 100);
+
+        return {
+          ...merged,
+          faturamentoUSD: fatUSD,
+          porcentagemViral: pctViral,
+          parteViralUSD: parteUSD
+        };
+      })
     };
     setRevenues(updated);
     syncToCloud(months, updated, expenses);
@@ -467,6 +526,7 @@ export const FinancialProvider = ({ children }) => {
       updateExpense,
       deleteExpense,
       propagateFixedExpenses,
+      propagateRevenueChannels,
       liveExchangeRate,
       exchangeRateLoading,
       exchangeRateLastUpdated,
