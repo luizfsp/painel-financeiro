@@ -51,12 +51,12 @@ const parseSavedMonthKey = (savedKey) => {
   if (parts.length >= 2) {
     const y = parseInt(parts[0]);
     const m = parseInt(parts[1]);
-    const safeYear = (!isNaN(y) && y >= 2020 && y <= 2035) ? y.toString() : '2026';
+    const safeYear = (!isNaN(y) && y >= 2026 && y <= 2035) ? y.toString() : '2026';
     const safeMonth = (!isNaN(m) && m >= 1 && m <= 12) ? m.toString().padStart(2, '0') : '09';
     return { year: safeYear, monthNum: safeMonth };
   }
   const parsedY = parseInt(savedKey);
-  const safeYear = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2035) ? parsedY.toString() : '2026';
+  const safeYear = (!isNaN(parsedY) && parsedY >= 2026 && parsedY <= 2035) ? parsedY.toString() : '2026';
   return { year: safeYear, monthNum: '09' };
 };
 

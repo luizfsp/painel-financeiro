@@ -13,17 +13,19 @@ export const MonthYearNavigator = () => {
   } = useFinancial();
 
   const parsedY = parseInt(currentYear);
-  const safeYearNum = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2035) ? parsedY : 2026;
+  const safeYearNum = (!isNaN(parsedY) && parsedY >= 2026 && parsedY <= 2035) ? parsedY : 2026;
 
   const handlePrevYear = () => {
-    changeYear((safeYearNum - 1).toString());
+    if (safeYearNum > 2026) {
+      changeYear((safeYearNum - 1).toString());
+    }
   };
 
   const handleNextYear = () => {
     changeYear((safeYearNum + 1).toString());
   };
 
-  const yearsList = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+  const yearsList = [2026, 2027, 2028, 2029, 2030];
 
   return (
     <div className="glass-card rounded-3xl p-4 sm:p-5 border border-slate-800 space-y-4 shadow-xl">
@@ -43,8 +45,13 @@ export const MonthYearNavigator = () => {
         <div className="flex items-center gap-2 bg-slate-950/90 rounded-2xl p-1.5 border border-slate-800 self-start sm:self-auto shadow-inner">
           <button
             onClick={handlePrevYear}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
-            title="Ano Anterior"
+            disabled={safeYearNum <= 2026}
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${
+              safeYearNum <= 2026
+                ? 'text-slate-700 cursor-not-allowed opacity-50'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Ano Anterior (Mínimo: 2026)"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
