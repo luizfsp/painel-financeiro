@@ -9,7 +9,9 @@ import {
   Globe, 
   Percent,
   Repeat,
-  CheckCircle2
+  CheckCircle2,
+  ArrowUpDown,
+  Search
 } from 'lucide-react';
 
 export const ReceitasView = () => {
@@ -28,6 +30,10 @@ export const ReceitasView = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Filtering & Sorting State
+  const [sortBy, setSortBy] = useState('default');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -107,6 +113,27 @@ export const ReceitasView = () => {
     const pct = (parseFloat(r.porcentagemViral) !== undefined ? parseFloat(r.porcentagemViral) : 100) / 100;
     return acc + ((parseFloat(r.faturamentoUSD) || 0) * pct * (parseFloat(r.cambio) || 0));
   }, 0);
+
+  // Sorting & Filtering Revenues List
+  const filteredAndSortedRevenues = [...revenues]
+    .filter(r => r.channel.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      const fatUSD_A = parseFloat(a.faturamentoUSD) || 0;
+      const fatUSD_B = parseFloat(b.faturamentoUSD) || 0;
+
+      const pctA = (parseFloat(a.porcentagemViral) !== undefined ? parseFloat(a.porcentagemViral) : 100) / 100;
+      const pctB = (parseFloat(b.porcentagemViral) !== undefined ? parseFloat(b.porcentagemViral) : 100) / 100;
+
+      const viralUSD_A = fatUSD_A * pctA;
+      const viralUSD_B = fatUSD_B * pctB;
+
+      if (sortBy === 'name_asc') return a.channel.localeCompare(b.channel);
+      if (sortBy === 'name_desc') return b.channel.localeCompare(a.channel);
+      if (sortBy === 'val_desc') return fatUSD_B - fatUSD_A;
+      if (sortBy === 'val_asc') return fatUSD_A - fatUSD_B;
+      if (sortBy === 'viral_desc') return viralUSD_B - viralUSD_A;
+      return 0;
+    });
 
   const formatCurrencyBRL = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   const formatCurrencyUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0);
@@ -189,6 +216,37 @@ export const ReceitasView = () => {
 
       </div>
 
+      {/* Search & Sort Filter Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 glass-card p-4 rounded-2xl border border-slate-800">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nome do canal / criador..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="glass-input w-full rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 text-xs font-medium">
+          <ArrowUpDown className="h-4 w-4 text-purple-400" />
+          <span className="text-slate-400">Ordenar por:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="glass-input rounded-xl px-3 py-2 text-xs text-white cursor-pointer font-semibold"
+          >
+            <option value="default" className="bg-slate-900">Ordem Padrão</option>
+            <option value="name_asc" className="bg-slate-900">Nome (A → Z)</option>
+            <option value="name_desc" className="bg-slate-900">Nome (Z → A)</option>
+            <option value="val_desc" className="bg-slate-900">Faturamento (Alto → Baixo)</option>
+            <option value="val_asc" className="bg-slate-900">Faturamento (Baixo → Alto)</option>
+            <option value="viral_desc" className="bg-slate-900">Maior Parte Viral FX</option>
+          </select>
+        </div>
+      </div>
+
       {/* Revenues Table */}
       <div className="glass-card rounded-3xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
@@ -207,8 +265,8 @@ export const ReceitasView = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-medium">
-              {revenues.length > 0 ? (
-                revenues.map((item) => {
+              {filteredAndSortedRevenues.length > 0 ? (
+                filteredAndSortedRevenues.map((item) => {
                   const fatUSD = parseFloat(item.faturamentoUSD) || 0;
                   const cambio = parseFloat(item.cambio) || liveExchangeRate;
                   const pct = item.porcentagemViral !== undefined ? parseFloat(item.porcentagemViral) : 100;
@@ -259,7 +317,7 @@ export const ReceitasView = () => {
               ) : (
                 <tr>
                   <td colSpan="9" className="py-8 text-center text-slate-500 font-medium">
-                    Nenhum canal de receita cadastrado para {monthLabel}.
+                    {searchQuery ? 'Nenhum canal encontrado com este termo.' : `Nenhum canal de receita cadastrado para ${monthLabel}.`}
                   </td>
                 </tr>
               )}
@@ -288,7 +346,7 @@ export const ReceitasView = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Nome do Canal / Fonte</label>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Nome do Canal / Fonte / Criador</label>
                 <input
                   type="text"
                   placeholder="Ex: Gaebe BS, Geludo, Cliente X"

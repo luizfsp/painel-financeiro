@@ -2,17 +2,14 @@ import React, { useState } from 'react';
 import { useFinancial } from '../context/FinancialContext';
 import { 
   Plus, 
-  Receipt, 
   Trash2, 
   Edit3, 
-  RefreshCw, 
-  Check, 
   X, 
+  Filter, 
   Repeat, 
-  Calendar, 
-  UserCheck, 
-  Filter,
-  CheckCircle2
+  CheckCircle2,
+  ArrowUpDown,
+  Search
 } from 'lucide-react';
 
 export const GastosView = () => {
@@ -21,17 +18,19 @@ export const GastosView = () => {
     addExpense, 
     updateExpense, 
     deleteExpense, 
-    propagateFixedExpenses, 
-    currentMonthKey, 
-    months, 
+    propagateFixedExpenses,
+    partners, 
     currentUser,
-    partners 
+    months,
+    currentMonthKey 
   } = useFinancial();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [filterCategory, setFilterCategory] = useState('Todos');
   const [filterPayer, setFilterPayer] = useState('Todos');
+  const [sortBy, setSortBy] = useState('default');
+  const [searchQuery, setSearchQuery] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   const [formData, setFormData] = useState({
@@ -91,19 +90,33 @@ export const GastosView = () => {
   const handleReplicateFixedCosts = () => {
     const count = propagateFixedExpenses(currentMonthKey);
     if (count > 0) {
-      setSuccessMessage(`${count} custos fixos foram copiados com sucesso para ${monthLabel}!`);
+      setSuccessMessage(`${count} custos fixos foram importados do mês anterior com sucesso!`);
     } else {
-      setSuccessMessage(`Todos os custos fixos do mês anterior já existem em ${monthLabel}.`);
+      setSuccessMessage(`Todos os custos fixos do mês anterior já estão cadastrados em ${monthLabel}.`);
     }
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // Filter logic
-  const filteredExpenses = expenses.filter(item => {
-    const matchCategory = filterCategory === 'Todos' || item.categoria === filterCategory;
-    const matchPayer = filterPayer === 'Todos' || item.pagoPor === filterPayer;
-    return matchCategory && matchPayer;
-  });
+  // Filter & Sort Logic
+  const filteredAndSortedExpenses = expenses
+    .filter(e => {
+      const matchCategory = filterCategory === 'Todos' || e.categoria === filterCategory;
+      const matchPayer = filterPayer === 'Todos' || e.pagoPor === filterPayer || (filterPayer === 'Fabio' && e.pagoPor === 'Fábio');
+      const matchSearch = e.descricao.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCategory && matchPayer && matchSearch;
+    })
+    .sort((a, b) => {
+      const valA = parseFloat(a.valorBRL) || 0;
+      const valB = parseFloat(b.valorBRL) || 0;
+
+      if (sortBy === 'name_asc') return a.descricao.localeCompare(b.descricao);
+      if (sortBy === 'name_desc') return b.descricao.localeCompare(a.descricao);
+      if (sortBy === 'val_desc') return valB - valA;
+      if (sortBy === 'val_asc') return valA - valB;
+      if (sortBy === 'date_asc') return (a.vencimento || '').localeCompare(b.vencimento || '');
+      if (sortBy === 'date_desc') return (b.vencimento || '').localeCompare(a.vencimento || '');
+      return 0;
+    });
 
   // KPI Calculations
   const totalBRL = expenses.reduce((acc, e) => acc + e.valorBRL, 0);
@@ -181,20 +194,32 @@ export const GastosView = () => {
 
       </div>
 
-      {/* Filter Bar */}
+      {/* Filter & Sort Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 glass-card p-4 rounded-2xl border border-slate-800">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-          <Filter className="h-4 w-4 text-purple-400" />
-          Filtros de Exibição:
+        
+        {/* Search Input */}
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por descrição do gasto / serviço..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="glass-input w-full rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500"
+          />
         </div>
 
+        {/* Filters */}
         <div className="flex flex-wrap items-center gap-4 text-xs font-medium">
+          
+          {/* Categoria */}
           <div className="flex items-center gap-2">
+            <Filter className="h-3.5 w-3.5 text-purple-400" />
             <span className="text-slate-400">Categoria:</span>
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="glass-input rounded-xl px-3 py-1.5 text-xs text-white"
+              className="glass-input rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer"
             >
               <option value="Todos" className="bg-slate-900">Todas Categorias</option>
               <option value="Fixo" className="bg-slate-900">Apenas Fixos</option>
@@ -202,18 +227,39 @@ export const GastosView = () => {
             </select>
           </div>
 
+          {/* Pago Por */}
           <div className="flex items-center gap-2">
             <span className="text-slate-400">Pago Por:</span>
             <select
               value={filterPayer}
               onChange={(e) => setFilterPayer(e.target.value)}
-              className="glass-input rounded-xl px-3 py-1.5 text-xs text-white"
+              className="glass-input rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer"
             >
               <option value="Todos" className="bg-slate-900">Todos Sócios</option>
               <option value="Fabio" className="bg-slate-900">Fabio</option>
               <option value="Luiz" className="bg-slate-900">Luiz</option>
             </select>
           </div>
+
+          {/* Ordenação */}
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="h-3.5 w-3.5 text-purple-400" />
+            <span className="text-slate-400">Ordenar por:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="glass-input rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer font-semibold"
+            >
+              <option value="default" className="bg-slate-900">Ordem Padrão</option>
+              <option value="name_asc" className="bg-slate-900">Descrição (A → Z)</option>
+              <option value="name_desc" className="bg-slate-900">Descrição (Z → A)</option>
+              <option value="val_desc" className="bg-slate-900">Valor (Alto → Baixo)</option>
+              <option value="val_asc" className="bg-slate-900">Valor (Baixo → Alto)</option>
+              <option value="date_asc" className="bg-slate-900">Vencimento (Mais Antigo)</option>
+              <option value="date_desc" className="bg-slate-900">Vencimento (Mais Recente)</option>
+            </select>
+          </div>
+
         </div>
       </div>
 
@@ -232,8 +278,8 @@ export const GastosView = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-medium">
-              {filteredExpenses.length > 0 ? (
-                filteredExpenses.map((item) => (
+              {filteredAndSortedExpenses.length > 0 ? (
+                filteredAndSortedExpenses.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
                     <td className="py-4 px-6 text-xs text-slate-400 font-semibold">{item.vencimento}</td>
                     <td className="py-4 px-6 font-bold text-white">{item.descricao}</td>
@@ -278,7 +324,7 @@ export const GastosView = () => {
               ) : (
                 <tr>
                   <td colSpan="6" className="py-8 text-center text-slate-500 font-medium">
-                    Nenhuma despesa encontrada para os filtros selecionados.
+                    {searchQuery ? 'Nenhuma despesa encontrada com este termo.' : `Nenhuma despesa encontrada com os filtros selecionados para ${monthLabel}.`}
                   </td>
                 </tr>
               )}
@@ -287,14 +333,14 @@ export const GastosView = () => {
         </div>
       </div>
 
-      {/* Modal Add/Edit Expense */}
+      {/* Add/Edit Expense Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
           <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-6">
             
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <h3 className="text-lg font-bold text-white">
-                {editingId ? 'Editar Despesa' : 'Cadastrar Nova Despesa'}
+                {editingId ? 'Editar Despesa' : 'Adicionar Nova Despesa'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -307,10 +353,10 @@ export const GastosView = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Descrição da Despesa</label>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Descrição do Gasto / Serviço</label>
                 <input
                   type="text"
-                  placeholder="Ex: Contabilidade, Heygen, ADS Power, etc."
+                  placeholder="Ex: Contabilidade, Heygen, ADS Power"
                   value={formData.descricao}
                   onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                   className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
@@ -381,9 +427,9 @@ export const GastosView = () => {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-rose-600 px-5 py-2 text-sm font-bold text-white hover:bg-rose-500 shadow-lg shadow-rose-600/30"
+                  className="rounded-xl bg-purple-600 px-5 py-2 text-sm font-bold text-white hover:bg-purple-500 shadow-lg shadow-purple-600/30"
                 >
-                  {editingId ? 'Salvar Alterações' : 'Cadastrar Despesa'}
+                  {editingId ? 'Salvar Alterações' : 'Adicionar Despesa'}
                 </button>
               </div>
 
