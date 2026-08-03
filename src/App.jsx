@@ -6,6 +6,7 @@ import { LoginModal } from './components/LoginModal';
 import { DashboardView } from './components/DashboardView';
 import { ReceitasView } from './components/ReceitasView';
 import { GastosView } from './components/GastosView';
+import { RecebedoresView } from './components/RecebedoresView';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 
 const MainContent = () => {
@@ -37,6 +38,7 @@ const MainContent = () => {
           {activeTab === 'dashboard' && <DashboardView />}
           {activeTab === 'receitas' && <ReceitasView />}
           {activeTab === 'gastos' && <GastosView />}
+          {activeTab === 'recebedores' && <RecebedoresView />}
         </main>
       </div>
 

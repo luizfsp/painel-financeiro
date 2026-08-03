@@ -35,3 +35,9 @@ export const INITIAL_EXPENSES = {
     { id: 'exp-9-7', vencimento: '2026-09-01', descricao: 'Oxylabs (Proxy)', categoria: 'Fixo', pagoPor: 'Luiz', valorBRL: 90.00 },
   ]
 };
+
+export const INITIAL_RECIPIENTS = {
+  '2026-07': [],
+  '2026-08': [],
+  '2026-09': []
+};

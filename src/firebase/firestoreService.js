@@ -113,6 +113,7 @@ export const pushDataToFirestore = async (database, payload, updatedBy = 'Sócio
     if (payload.months !== undefined) dataToSave.months = payload.months;
     if (payload.revenues !== undefined) dataToSave.revenues = payload.revenues;
     if (payload.expenses !== undefined) dataToSave.expenses = payload.expenses;
+    if (payload.recipients !== undefined) dataToSave.recipients = payload.recipients;
     if (payload.partnerPasswords !== undefined) dataToSave.partnerPasswords = payload.partnerPasswords;
     if (payload.masterPassword !== undefined) dataToSave.masterPassword = payload.masterPassword;
 

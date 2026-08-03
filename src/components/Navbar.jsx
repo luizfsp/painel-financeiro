@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   DollarSign,
   Receipt,
+  Users,
   KeyRound
 } from 'lucide-react';
 
@@ -59,6 +60,7 @@ export const Navbar = ({ activeTab, setActiveTab, openChangePasswordModal }) => 
               <LayoutDashboard className="h-4 w-4" />
               Resumo & Acerto
             </button>
+
             <button
               onClick={() => setActiveTab('receitas')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
@@ -70,6 +72,7 @@ export const Navbar = ({ activeTab, setActiveTab, openChangePasswordModal }) => 
               <DollarSign className="h-4 w-4" />
               Receitas
             </button>
+
             <button
               onClick={() => setActiveTab('gastos')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
@@ -80,6 +83,18 @@ export const Navbar = ({ activeTab, setActiveTab, openChangePasswordModal }) => 
             >
               <Receipt className="h-4 w-4" />
               Gastos
+            </button>
+
+            <button
+              onClick={() => setActiveTab('recebedores')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                activeTab === 'recebedores'
+                  ? 'bg-gradient-to-r from-amber-500 to-purple-600 text-white shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <Users className="h-4 w-4 text-amber-400" />
+              Recebedores
             </button>
           </nav>
 
@@ -157,6 +172,7 @@ export const Navbar = ({ activeTab, setActiveTab, openChangePasswordModal }) => 
           <LayoutDashboard className="h-3.5 w-3.5" />
           Resumo
         </button>
+
         <button
           onClick={() => setActiveTab('receitas')}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg ${
@@ -166,6 +182,7 @@ export const Navbar = ({ activeTab, setActiveTab, openChangePasswordModal }) => 
           <DollarSign className="h-3.5 w-3.5" />
           Receitas
         </button>
+
         <button
           onClick={() => setActiveTab('gastos')}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg ${
@@ -174,6 +191,16 @@ export const Navbar = ({ activeTab, setActiveTab, openChangePasswordModal }) => 
         >
           <Receipt className="h-3.5 w-3.5" />
           Gastos
+        </button>
+
+        <button
+          onClick={() => setActiveTab('recebedores')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg ${
+            activeTab === 'recebedores' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <Users className="h-3.5 w-3.5" />
+          Recebedores
         </button>
       </div>
     </header>

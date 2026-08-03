@@ -4,7 +4,8 @@ import {
   DEFAULT_EXCHANGE_RATE, 
   INITIAL_MONTHS, 
   INITIAL_REVENUES, 
-  INITIAL_EXPENSES 
+  INITIAL_EXPENSES,
+  INITIAL_RECIPIENTS
 } from '../data/initialData';
 import { 
   getStoredFirebaseConfig, 
@@ -77,12 +78,26 @@ const dedupeRevenues = (items) => {
   });
 };
 
-const sanitizeDataMap = (mapObj, defaultData, isExpense = true) => {
+const dedupeRecipients = (items) => {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  return items.filter(item => {
+    if (!item || !item.nome) return false;
+    const key = `${item.id || ''}-${item.nome.toLowerCase().trim()}-${(item.canal || '').toLowerCase().trim()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const sanitizeDataMap = (mapObj, defaultData, mode = 'expense') => {
   if (!mapObj || typeof mapObj !== 'object') return defaultData;
   const clean = {};
   Object.keys(mapObj).forEach(k => {
     if (isMonthKey(k) && Array.isArray(mapObj[k])) {
-      clean[k] = isExpense ? dedupeExpenses(mapObj[k]) : dedupeRevenues(mapObj[k]);
+      if (mode === 'expense') clean[k] = dedupeExpenses(mapObj[k]);
+      else if (mode === 'revenue') clean[k] = dedupeRevenues(mapObj[k]);
+      else clean[k] = dedupeRecipients(mapObj[k]);
     }
   });
   return Object.keys(clean).length > 0 ? clean : defaultData;
@@ -142,7 +157,7 @@ export const FinancialProvider = ({ children }) => {
     const saved = localStorage.getItem('viralfx_revenues');
     if (!saved) return INITIAL_REVENUES;
     try {
-      return sanitizeDataMap(JSON.parse(saved), INITIAL_REVENUES, false);
+      return sanitizeDataMap(JSON.parse(saved), INITIAL_REVENUES, 'revenue');
     } catch (e) {
       return INITIAL_REVENUES;
     }
@@ -153,9 +168,20 @@ export const FinancialProvider = ({ children }) => {
     const saved = localStorage.getItem('viralfx_expenses');
     if (!saved) return INITIAL_EXPENSES;
     try {
-      return sanitizeDataMap(JSON.parse(saved), INITIAL_EXPENSES, true);
+      return sanitizeDataMap(JSON.parse(saved), INITIAL_EXPENSES, 'expense');
     } catch (e) {
       return INITIAL_EXPENSES;
+    }
+  });
+
+  // Recipients Data Map (Recebedores de Rev Share)
+  const [recipients, setRecipients] = useState(() => {
+    const saved = localStorage.getItem('viralfx_recipients');
+    if (!saved) return INITIAL_RECIPIENTS;
+    try {
+      return sanitizeDataMap(JSON.parse(saved), INITIAL_RECIPIENTS, 'recipient');
+    } catch (e) {
+      return INITIAL_RECIPIENTS;
     }
   });
 
@@ -171,13 +197,14 @@ export const FinancialProvider = ({ children }) => {
   const dbRef = useRef(null);
 
   // Sync state to Firestore with ref-guaranteed partner passwords
-  const syncToCloud = async (newMonths, newRevenues, newExpenses, explicitPassMap = null) => {
+  const syncToCloud = async (newMonths, newRevenues, newExpenses, newRecipients = recipients, explicitPassMap = null) => {
     if (dbRef.current) {
       const activePassMap = explicitPassMap || partnerPasswordsRef.current || getStoredPartnerPasswords();
       const success = await pushDataToFirestore(dbRef.current, {
         months: newMonths,
         revenues: newRevenues,
         expenses: newExpenses,
+        recipients: newRecipients,
         partnerPasswords: activePassMap
       }, currentUser || 'Sócio');
 
@@ -198,8 +225,9 @@ export const FinancialProvider = ({ children }) => {
         const unsubscribe = subscribeToViralFXData(res.db, (remoteData) => {
           if (remoteData) {
             if (remoteData.months) setMonths(remoteData.months);
-            if (remoteData.revenues) setRevenues(sanitizeDataMap(remoteData.revenues, INITIAL_REVENUES, false));
-            if (remoteData.expenses) setExpenses(sanitizeDataMap(remoteData.expenses, INITIAL_EXPENSES, true));
+            if (remoteData.revenues) setRevenues(sanitizeDataMap(remoteData.revenues, INITIAL_REVENUES, 'revenue'));
+            if (remoteData.expenses) setExpenses(sanitizeDataMap(remoteData.expenses, INITIAL_EXPENSES, 'expense'));
+            if (remoteData.recipients) setRecipients(sanitizeDataMap(remoteData.recipients, INITIAL_RECIPIENTS, 'recipient'));
             
             // Synchronize individual partner passwords from cloud
             if (remoteData.partnerPasswords && typeof remoteData.partnerPasswords === 'object') {
@@ -245,6 +273,10 @@ export const FinancialProvider = ({ children }) => {
     localStorage.setItem('viralfx_expenses', JSON.stringify(expenses));
   }, [expenses]);
 
+  useEffect(() => {
+    localStorage.setItem('viralfx_recipients', JSON.stringify(recipients));
+  }, [recipients]);
+
   // Change Password Action for a specific partner
   const changePassword = (partnerName, currentPass, newPass) => {
     const targetPartner = partnerName || currentUser || 'Fabio';
@@ -268,7 +300,7 @@ export const FinancialProvider = ({ children }) => {
     partnerPasswordsRef.current = updatedMap;
     localStorage.setItem('viralfx_partner_passwords', JSON.stringify(updatedMap));
 
-    syncToCloud(months, revenues, expenses, updatedMap);
+    syncToCloud(months, revenues, expenses, recipients, updatedMap);
     return { success: true };
   };
 
@@ -276,7 +308,6 @@ export const FinancialProvider = ({ children }) => {
   const verifyPartnerPassword = async (partnerName, inputPass) => {
     let activeMap = partnerPasswordsRef.current || getStoredPartnerPasswords();
 
-    // Query latest cloud password to prevent cross-browser cache mismatch
     if (dbRef.current) {
       const remoteData = await fetchCurrentFirestoreData(dbRef.current);
       if (remoteData && remoteData.partnerPasswords && typeof remoteData.partnerPasswords === 'object') {
@@ -315,7 +346,7 @@ export const FinancialProvider = ({ children }) => {
     fetchExchangeRate();
   }, []);
 
-  // Helper: Find previous month key for expenses/revenues
+  // Helper: Find previous month key for expenses/revenues/recipients
   const getPreviousAvailableMonthKey = (targetKey, dataMap) => {
     const allKeys = Object.keys(dataMap).filter(k => isMonthKey(k) && (dataMap[k] || []).length > 0).sort();
     const idx = allKeys.indexOf(targetKey);
@@ -354,7 +385,7 @@ export const FinancialProvider = ({ children }) => {
         [targetMonthKey]: dedupeExpenses([...(expenses[targetMonthKey] || []), ...newFixedItems])
       };
       setExpenses(updatedExpenses);
-      syncToCloud(months, revenues, updatedExpenses);
+      syncToCloud(months, revenues, updatedExpenses, recipients);
     }
 
     return newFixedItems.length;
@@ -391,10 +422,43 @@ export const FinancialProvider = ({ children }) => {
         [targetMonthKey]: dedupeRevenues([...(revenues[targetMonthKey] || []), ...newChannelItems])
       };
       setRevenues(updatedRevenues);
-      syncToCloud(months, updatedRevenues, expenses);
+      syncToCloud(months, updatedRevenues, expenses, recipients);
     }
 
     return newChannelItems.length;
+  };
+
+  // Helper: Propagate recipients from previous month
+  const propagateRecipients = (targetMonthKey, sourceMonthKey = null) => {
+    const srcKey = sourceMonthKey || getPreviousAvailableMonthKey(targetMonthKey, recipients);
+    const sourceRecipients = recipients[srcKey] || [];
+
+    if (sourceRecipients.length === 0) return 0;
+
+    const existingTargetRecipients = recipients[targetMonthKey] || [];
+    const targetKeys = new Set(existingTargetRecipients.map(r => `${r.nome.toLowerCase().trim()}-${(r.canal || '').toLowerCase().trim()}`));
+
+    const newRecipientItems = [];
+    sourceRecipients.forEach((item, index) => {
+      const itemKey = `${item.nome.toLowerCase().trim()}-${(item.canal || '').toLowerCase().trim()}`;
+      if (!targetKeys.has(itemKey)) {
+        newRecipientItems.push({
+          ...item,
+          id: `rec-prop-${targetMonthKey}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+        });
+      }
+    });
+
+    if (newRecipientItems.length > 0) {
+      const updatedRecipients = {
+        ...recipients,
+        [targetMonthKey]: dedupeRecipients([...(recipients[targetMonthKey] || []), ...newRecipientItems])
+      };
+      setRecipients(updatedRecipients);
+      syncToCloud(months, revenues, expenses, updatedRecipients);
+    }
+
+    return newRecipientItems.length;
   };
 
   // Select Month by Month Number ('01' to '12') and Year ('2026')
@@ -441,7 +505,7 @@ export const FinancialProvider = ({ children }) => {
       [monthKey]: dedupeRevenues([...(revenues[monthKey] || []), newItem])
     };
     setRevenues(updated);
-    syncToCloud(months, updated, expenses);
+    syncToCloud(months, updated, expenses, recipients);
   };
 
   const updateRevenue = (monthKey, id, updatedFields) => {
@@ -464,7 +528,7 @@ export const FinancialProvider = ({ children }) => {
       })
     };
     setRevenues(updated);
-    syncToCloud(months, updated, expenses);
+    syncToCloud(months, updated, expenses, recipients);
   };
 
   const deleteRevenue = (monthKey, id) => {
@@ -473,7 +537,7 @@ export const FinancialProvider = ({ children }) => {
       [monthKey]: (revenues[monthKey] || []).filter(item => item.id !== id)
     };
     setRevenues(updated);
-    syncToCloud(months, updated, expenses);
+    syncToCloud(months, updated, expenses, recipients);
   };
 
   // Actions for Expenses
@@ -491,7 +555,7 @@ export const FinancialProvider = ({ children }) => {
       [monthKey]: dedupeExpenses([...(expenses[monthKey] || []), newItem])
     };
     setExpenses(updated);
-    syncToCloud(months, revenues, updated);
+    syncToCloud(months, revenues, updated, recipients);
   };
 
   const updateExpense = (monthKey, id, updatedFields) => {
@@ -500,7 +564,7 @@ export const FinancialProvider = ({ children }) => {
       [monthKey]: (expenses[monthKey] || []).map(item => item.id === id ? { ...item, ...updatedFields } : item)
     };
     setExpenses(updated);
-    syncToCloud(months, revenues, updated);
+    syncToCloud(months, revenues, updated, recipients);
   };
 
   const deleteExpense = (monthKey, id) => {
@@ -509,7 +573,42 @@ export const FinancialProvider = ({ children }) => {
       [monthKey]: (expenses[monthKey] || []).filter(item => item.id !== id)
     };
     setExpenses(updated);
-    syncToCloud(months, revenues, updated);
+    syncToCloud(months, revenues, updated, recipients);
+  };
+
+  // Actions for Recipients (Recebedores de Revenue Share)
+  const addRecipient = (monthKey, recipientItem) => {
+    const newItem = {
+      id: `rec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      nome: recipientItem.nome || 'Novo Recebedor',
+      canal: recipientItem.canal || '',
+      porcentagem: parseFloat(recipientItem.porcentagem || 10),
+      observacao: recipientItem.observacao || ''
+    };
+    const updated = {
+      ...recipients,
+      [monthKey]: dedupeRecipients([...(recipients[monthKey] || []), newItem])
+    };
+    setRecipients(updated);
+    syncToCloud(months, revenues, expenses, updated);
+  };
+
+  const updateRecipient = (monthKey, id, updatedFields) => {
+    const updated = {
+      ...recipients,
+      [monthKey]: (recipients[monthKey] || []).map(item => item.id === id ? { ...item, ...updatedFields } : item)
+    };
+    setRecipients(updated);
+    syncToCloud(months, revenues, expenses, updated);
+  };
+
+  const deleteRecipient = (monthKey, id) => {
+    const updated = {
+      ...recipients,
+      [monthKey]: (recipients[monthKey] || []).filter(item => item.id !== id)
+    };
+    setRecipients(updated);
+    syncToCloud(months, revenues, expenses, updated);
   };
 
   // Configure Firebase Credentials
@@ -531,10 +630,12 @@ export const FinancialProvider = ({ children }) => {
   const resetToDefaults = () => {
     localStorage.removeItem('viralfx_revenues');
     localStorage.removeItem('viralfx_expenses');
+    localStorage.removeItem('viralfx_recipients');
     localStorage.removeItem('viralfx_months');
     setMonths(INITIAL_MONTHS);
     setRevenues(INITIAL_REVENUES);
     setExpenses(INITIAL_EXPENSES);
+    setRecipients(INITIAL_RECIPIENTS);
     setCurrentYear('2026');
     setCurrentMonthNum('09');
   };
@@ -545,6 +646,7 @@ export const FinancialProvider = ({ children }) => {
       months,
       revenues,
       expenses,
+      recipients,
       exportDate: new Date().toISOString()
     };
     const jsonStr = JSON.stringify(dataObj, null, 2);
@@ -562,9 +664,10 @@ export const FinancialProvider = ({ children }) => {
       const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
       if (parsed.months && parsed.revenues && parsed.expenses) {
         setMonths(parsed.months);
-        setRevenues(sanitizeDataMap(parsed.revenues, INITIAL_REVENUES, false));
-        setExpenses(sanitizeDataMap(parsed.expenses, INITIAL_EXPENSES, true));
-        syncToCloud(parsed.months, parsed.revenues, parsed.expenses);
+        setRevenues(sanitizeDataMap(parsed.revenues, INITIAL_REVENUES, 'revenue'));
+        setExpenses(sanitizeDataMap(parsed.expenses, INITIAL_EXPENSES, 'expense'));
+        if (parsed.recipients) setRecipients(sanitizeDataMap(parsed.recipients, INITIAL_RECIPIENTS, 'recipient'));
+        syncToCloud(parsed.months, parsed.revenues, parsed.expenses, parsed.recipients || recipients);
         return true;
       }
     } catch (e) {
@@ -593,14 +696,20 @@ export const FinancialProvider = ({ children }) => {
       allRevenues: revenues,
       expenses: expenses[currentMonthKey] || [],
       allExpenses: expenses,
+      recipients: recipients[currentMonthKey] || [],
+      allRecipients: recipients,
       addRevenue,
       updateRevenue,
       deleteRevenue,
       addExpense,
       updateExpense,
       deleteExpense,
+      addRecipient,
+      updateRecipient,
+      deleteRecipient,
       propagateFixedExpenses,
       propagateRevenueChannels,
+      propagateRecipients,
       liveExchangeRate,
       exchangeRateLoading,
       exchangeRateLastUpdated,
