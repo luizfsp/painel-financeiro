@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFinancial } from '../context/FinancialContext';
 import { 
   Plus, 
@@ -29,9 +29,27 @@ export const GastosView = () => {
   const [editingId, setEditingId] = useState(null);
   const [filterCategory, setFilterCategory] = useState('Todos');
   const [filterPayer, setFilterPayer] = useState('Todos');
-  const [sortBy, setSortBy] = useState('default');
+  
+  // Per-user sort preference persistence
+  const sortStorageKey = `viralfx_sort_gastos_${currentUser || 'guest'}`;
+
+  const [sortBy, setSortBy] = useState(() => {
+    return localStorage.getItem(sortStorageKey) || 'default';
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Synchronize sort state when switching user profiles
+  useEffect(() => {
+    const savedSort = localStorage.getItem(sortStorageKey);
+    setSortBy(savedSort || 'default');
+  }, [currentUser]);
+
+  const handleSortChange = (newSort) => {
+    setSortBy(newSort);
+    localStorage.setItem(sortStorageKey, newSort);
+  };
 
   const [formData, setFormData] = useState({
     vencimento: `${currentMonthKey}-01`,
@@ -247,7 +265,7 @@ export const GastosView = () => {
             <span className="text-slate-400">Ordenar por:</span>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => handleSortChange(e.target.value)}
               className="glass-input rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer font-semibold"
             >
               <option value="default" className="bg-slate-900">Ordem Padrão</option>
