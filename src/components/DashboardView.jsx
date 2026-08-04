@@ -216,7 +216,7 @@ export const DashboardView = () => {
           <div className="absolute right-3 top-3 h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
             <HandCoins className="h-5 w-5 text-amber-400" />
           </div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Recebedores / Comissões</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Recebedores</span>
           <p className="mt-2 text-xl font-black text-amber-300">{formatCurrency(totalRecebedoresBRL)}</p>
           <p className="mt-1 text-[10px] font-semibold text-slate-400">Revenue share repassado</p>
         </div>
