@@ -9,7 +9,8 @@ import {
   Repeat, 
   CheckCircle2,
   ArrowUpDown,
-  Search
+  Search,
+  Scale
 } from 'lucide-react';
 
 export const GastosView = () => {
@@ -119,7 +120,16 @@ export const GastosView = () => {
   const filteredAndSortedExpenses = expenses
     .filter(e => {
       const matchCategory = filterCategory === 'Todos' || e.categoria === filterCategory;
-      const matchPayer = filterPayer === 'Todos' || e.pagoPor === filterPayer || (filterPayer === 'Fabio' && e.pagoPor === 'Fábio');
+      const isFabio = e.pagoPor === 'Fabio' || e.pagoPor === 'Fábio';
+      const isLuiz = e.pagoPor === 'Luiz';
+      const isNeutro = e.pagoPor === 'Neutro (50/50)' || e.pagoPor === 'Neutro';
+
+      const matchPayer = 
+        filterPayer === 'Todos' ||
+        (filterPayer === 'Fabio' && isFabio) ||
+        (filterPayer === 'Luiz' && isLuiz) ||
+        (filterPayer === 'Neutro (50/50)' && isNeutro);
+
       const matchSearch = e.descricao.toLowerCase().includes(searchQuery.toLowerCase());
       return matchCategory && matchPayer && matchSearch;
     })
@@ -137,11 +147,12 @@ export const GastosView = () => {
     });
 
   // KPI Calculations
-  const totalBRL = expenses.reduce((acc, e) => acc + e.valorBRL, 0);
-  const totalFixosBRL = expenses.filter(e => e.categoria === 'Fixo').reduce((acc, e) => acc + e.valorBRL, 0);
-  const totalVariaveisBRL = expenses.filter(e => e.categoria === 'Variável').reduce((acc, e) => acc + e.valorBRL, 0);
-  const totalFabioBRL = expenses.filter(e => e.pagoPor === 'Fabio' || e.pagoPor === 'Fábio').reduce((acc, e) => acc + e.valorBRL, 0);
-  const totalLuizBRL = expenses.filter(e => e.pagoPor === 'Luiz').reduce((acc, e) => acc + e.valorBRL, 0);
+  const totalBRL = expenses.reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
+  const totalFixosBRL = expenses.filter(e => e.categoria === 'Fixo').reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
+  const totalVariaveisBRL = expenses.filter(e => e.categoria === 'Variável').reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
+  const totalFabioBRL = expenses.filter(e => e.pagoPor === 'Fabio' || e.pagoPor === 'Fábio').reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
+  const totalLuizBRL = expenses.filter(e => e.pagoPor === 'Luiz').reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
+  const totalNeutroBRL = expenses.filter(e => e.pagoPor === 'Neutro (50/50)' || e.pagoPor === 'Neutro').reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
 
   const formatCurrencyBRL = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
@@ -183,10 +194,10 @@ export const GastosView = () => {
       )}
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         
         <div className="glass-card p-5 rounded-3xl border border-slate-800">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total de Despesas</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Despesas</span>
           <p className="mt-2 text-2xl font-black text-white">{formatCurrencyBRL(totalBRL)}</p>
         </div>
 
@@ -203,11 +214,32 @@ export const GastosView = () => {
         <div className="glass-card p-5 rounded-3xl border border-slate-800">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Pago por Fabio</span>
           <p className="mt-2 text-2xl font-black text-purple-400">{formatCurrencyBRL(totalFabioBRL)}</p>
+          {totalNeutroBRL > 0 && (
+            <span className="text-[10px] text-slate-400 font-semibold block mt-1">
+              + {formatCurrencyBRL(totalNeutroBRL / 2)} (50% neutro)
+            </span>
+          )}
         </div>
 
         <div className="glass-card p-5 rounded-3xl border border-slate-800">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Pago por Luiz</span>
           <p className="mt-2 text-2xl font-black text-cyan-400">{formatCurrencyBRL(totalLuizBRL)}</p>
+          {totalNeutroBRL > 0 && (
+            <span className="text-[10px] text-slate-400 font-semibold block mt-1">
+              + {formatCurrencyBRL(totalNeutroBRL / 2)} (50% neutro)
+            </span>
+          )}
+        </div>
+
+        <div className="glass-card p-5 rounded-3xl border border-slate-800">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+            <Scale className="h-3 w-3 text-emerald-400" />
+            Neutro (50/50)
+          </span>
+          <p className="mt-2 text-2xl font-black text-emerald-400">{formatCurrencyBRL(totalNeutroBRL)}</p>
+          <span className="text-[10px] text-slate-400 font-semibold block mt-1">
+            {formatCurrencyBRL(totalNeutroBRL / 2)} por sócio
+          </span>
         </div>
 
       </div>
@@ -256,6 +288,7 @@ export const GastosView = () => {
               <option value="Todos" className="bg-slate-900">Todos Sócios</option>
               <option value="Fabio" className="bg-slate-900">Fabio</option>
               <option value="Luiz" className="bg-slate-900">Luiz</option>
+              <option value="Neutro (50/50)" className="bg-slate-900">Neutro (50/50)</option>
             </select>
           </div>
 
@@ -297,48 +330,64 @@ export const GastosView = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-medium">
               {filteredAndSortedExpenses.length > 0 ? (
-                filteredAndSortedExpenses.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="py-4 px-6 text-xs text-slate-400 font-semibold">{item.vencimento}</td>
-                    <td className="py-4 px-6 font-bold text-white">{item.descricao}</td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${
-                        item.categoria === 'Fixo'
-                          ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
-                          : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                      }`}>
-                        {item.categoria}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1.5 font-bold ${
-                        item.pagoPor === 'Fabio' || item.pagoPor === 'Fábio' ? 'text-purple-400' : 'text-cyan-400'
-                      }`}>
-                        <div className={`h-2.5 w-2.5 rounded-full ${item.pagoPor === 'Fabio' || item.pagoPor === 'Fábio' ? 'bg-purple-500' : 'bg-cyan-400'}`}></div>
-                        {item.pagoPor}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-rose-400 font-bold">{formatCurrencyBRL(item.valorBRL)}</td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEditModal(item)}
-                          className="p-2 rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
-                          title="Editar"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => deleteExpense(currentMonthKey, item.id)}
-                          className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filteredAndSortedExpenses.map((item) => {
+                  const isFabio = item.pagoPor === 'Fabio' || item.pagoPor === 'Fábio';
+                  const isLuiz = item.pagoPor === 'Luiz';
+                  const isNeutro = item.pagoPor === 'Neutro (50/50)' || item.pagoPor === 'Neutro';
+
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
+                      <td className="py-4 px-6 text-xs text-slate-400 font-semibold">{item.vencimento}</td>
+                      <td className="py-4 px-6 font-bold text-white">{item.descricao}</td>
+                      <td className="py-4 px-6">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${
+                          item.categoria === 'Fixo'
+                            ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
+                            : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {item.categoria}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={`inline-flex items-center gap-1.5 font-bold ${
+                          isFabio 
+                            ? 'text-purple-400' 
+                            : isLuiz 
+                              ? 'text-cyan-400' 
+                              : 'text-emerald-400'
+                        }`}>
+                          <div className={`h-2.5 w-2.5 rounded-full ${
+                            isFabio 
+                              ? 'bg-purple-500' 
+                              : isLuiz 
+                                ? 'bg-cyan-400' 
+                                : 'bg-emerald-400'
+                          }`}></div>
+                          {isNeutro ? 'Neutro (50/50)' : item.pagoPor}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-rose-400 font-bold">{formatCurrencyBRL(item.valorBRL)}</td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="p-2 rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
+                            title="Editar"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteExpense(currentMonthKey, item.id)}
+                            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="6" className="py-8 text-center text-slate-500 font-medium">
@@ -431,9 +480,19 @@ export const GastosView = () => {
                     {partners.map(p => (
                       <option key={p} value={p} className="bg-slate-900">{p}</option>
                     ))}
+                    <option value="Neutro (50/50)" className="bg-slate-900">Neutro (50/50)</option>
                   </select>
                 </div>
               </div>
+
+              {formData.pagoPor === 'Neutro (50/50)' && (
+                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-300 flex items-center gap-2">
+                  <Scale className="h-4 w-4 shrink-0 text-emerald-400" />
+                  <span>
+                    <strong>Custo Neutro:</strong> Cada sócio paga exatamente 50% deste valor (R$ {formData.valorBRL ? (parseFloat(formData.valorBRL) / 2).toFixed(2) : '0.00'} cada). Não gera dívida entre os sócios.
+                  </span>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
                 <button

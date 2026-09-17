@@ -75,13 +75,21 @@ export const DashboardView = () => {
     : 0;
 
   // Acerto de Contas 50/50
-  const gastosFabio = expenses
+  const gastosDiretosFabio = expenses
     .filter(e => e.pagoPor === 'Fabio' || e.pagoPor === 'Fábio')
     .reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
 
-  const gastosLuiz = expenses
+  const gastosDiretosLuiz = expenses
     .filter(e => e.pagoPor === 'Luiz')
     .reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
+
+  const gastosNeutros = expenses
+    .filter(e => e.pagoPor === 'Neutro (50/50)' || e.pagoPor === 'Neutro')
+    .reduce((acc, e) => acc + (parseFloat(e.valorBRL) || 0), 0);
+
+  // Cada sócio é responsável por 50% dos gastos neutros
+  const gastosFabio = gastosDiretosFabio + (gastosNeutros / 2);
+  const gastosLuiz = gastosDiretosLuiz + (gastosNeutros / 2);
 
   const parteDevidaGastos = totalGastosBRL / 2;
 
@@ -239,12 +247,19 @@ export const DashboardView = () => {
 
       {/* 50/50 Detailed Table */}
       <div className="glass-card rounded-3xl overflow-hidden border border-slate-800">
-        <div className="p-6 border-b border-slate-800 bg-slate-900/60">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <Users className="h-5 w-5 text-purple-400" />
-            Detalhamento do Acerto de Contas (50/50)
-          </h3>
-          <p className="text-xs text-slate-400 mt-1">Cálculo proporcional exato com base na receita Viral FX abatia de despesas e comissões</p>
+        <div className="p-6 border-b border-slate-800 bg-slate-900/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Users className="h-5 w-5 text-purple-400" />
+              Detalhamento do Acerto de Contas (50/50)
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">Cálculo proporcional exato com base na receita Viral FX abatida de despesas e comissões</p>
+          </div>
+          {gastosNeutros > 0 && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+              Gastos Neutros (50/50): {formatCurrency(gastosNeutros)} ({formatCurrency(gastosNeutros / 2)} para cada)
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -265,7 +280,14 @@ export const DashboardView = () => {
                   <div className="h-3 w-3 rounded-full bg-purple-500"></div>
                   Fabio
                 </td>
-                <td className="py-4 px-6 text-purple-300">{formatCurrency(gastosFabio)}</td>
+                <td className="py-4 px-6 text-purple-300">
+                  <span className="font-bold">{formatCurrency(gastosFabio)}</span>
+                  {gastosNeutros > 0 && (
+                    <span className="block text-[10px] text-slate-400 font-normal">
+                      {formatCurrency(gastosDiretosFabio)} direto + {formatCurrency(gastosNeutros / 2)} neutro
+                    </span>
+                  )}
+                </td>
                 <td className="py-4 px-6 text-slate-400">{formatCurrency(parteDevidaGastos)}</td>
                 <td className={`py-4 px-6 font-bold ${saldoGastosFabio >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {formatCurrency(saldoGastosFabio)}
@@ -281,7 +303,14 @@ export const DashboardView = () => {
                   <div className="h-3 w-3 rounded-full bg-cyan-400"></div>
                   Luiz
                 </td>
-                <td className="py-4 px-6 text-cyan-300">{formatCurrency(gastosLuiz)}</td>
+                <td className="py-4 px-6 text-cyan-300">
+                  <span className="font-bold">{formatCurrency(gastosLuiz)}</span>
+                  {gastosNeutros > 0 && (
+                    <span className="block text-[10px] text-slate-400 font-normal">
+                      {formatCurrency(gastosDiretosLuiz)} direto + {formatCurrency(gastosNeutros / 2)} neutro
+                    </span>
+                  )}
+                </td>
                 <td className="py-4 px-6 text-slate-400">{formatCurrency(parteDevidaGastos)}</td>
                 <td className={`py-4 px-6 font-bold ${saldoGastosLuiz >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {formatCurrency(saldoGastosLuiz)}
